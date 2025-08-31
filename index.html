@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Prodecta – Widget (Visite virtuelle / Chatbot IA / Agent IA)</title>
+
+<!-- Mode EMBED: si la page est dans un iframe ou avec ?embed=1 -->
+<script>
+  (function () {
+    const inFrame = (window.top !== window.self);
+    const qs = new URLSearchParams(location.search);
+    if (inFrame || qs.has('embed')) {
+      document.documentElement.classList.add('is-embed');
+      document.body.classList.add('is-embed');
+    }
+  })();
+</script>
+
+<style>
+/* ====== BASE TRANSPARENTE / VISION-STYLE ====== */
+:root{
+  /* Palette “flat glass” */
+  --surface: rgba(22,22,24,.34);
+  --surface-strong: rgba(22,22,24,.48);
+  --hairline: rgba(255,255,255,.14);
+  --outline: rgba(255,255,255,.08);
+  --muted: rgba(255,255,255,.65);
+  --shadow: 0 24px 60px rgba(0,0,0,.35);
+  --brand: #10b981;
+}
+*{ box-sizing:border-box }
+html,body{
+  margin:0;
+  background:transparent !important;
+  color:#fff;
+  font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+}
+h3{ margin:0 0 10px; font-size:18px; font-weight:700 }
+
+/* Wrapper compact */
+.wrapper{ max-width:1060px; margin:14px auto 8px; padding:0 14px; }
+
+/* ====== ONGLETS (segmented control) ====== */
+.glass-tabs{
+  display:flex; gap:8px; align-items:center;
+  margin: 6px auto 14px; padding:6px;
+  width:max-content; max-width:100%;
+  border:1px solid var(--hairline);
+  background: var(--surface);
+  backdrop-filter: blur(10px) saturate(120%);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+}
+.tab-btn{
+  appearance:none; border:1px solid transparent;
+  background: transparent;
+  color:#fff; font-weight:600; font-size:14px;
+  padding:8px 14px; border-radius:10px; cursor:pointer;
+  transition:.2s background-color,.2s border-color,.2s color;
+}
+.tab-btn:hover{ background: rgba(255,255,255,.06); border-color: var(--outline); }
+.tab-btn.active{
+  background: color-mix(in oklab, var(--brand) 18%, transparent);
+  border-color: color-mix(in oklab, var(--brand) 30%, var(--hairline));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--brand) 35%, transparent);
+}
+
+/* Panneaux d’onglets */
+.tab-content{ display:none; }
+.tab-content.active{ display:block; }
+
+/* ====== PANNEAU PRINCIPAL (flat glass) ====== */
+.glass-panel{
+  border-radius:16px;
+  background: var(--surface);
+  backdrop-filter: blur(10px) saturate(120%);
+  border: 1px solid var(--hairline);
+  box-shadow: var(--shadow);
+  padding: 16px 18px 14px;
+}
+
+/* ====== LAYOUT ====== */
+.row{ display:flex; gap:14px; margin-bottom:14px; flex-wrap:wrap }
+.row:last-child{ margin-bottom:0 }
+.col{ flex:1 1 0; min-width:300px; position:relative }
+
+/* Proportions ligne 1 */
+.col.stats   { flex-basis:32%; }
+.col.reviews { flex-basis:46%; }
+.col.cta     { flex-basis:22%; }
+
+/* Cartes (flat, sans reflets) */
+.glass-frame{
+  border-radius:14px;
+  background: var(--surface);
+  border:1px solid var(--hairline);
+  backdrop-filter: blur(8px) saturate(110%);
+  padding:14px;
+  overflow:hidden;
+  position:relative;
+  box-shadow: 0 10px 26px rgba(0,0,0,.28);
+}
+
+/* ====== Chiffres clés ====== */
+.cards{
+  display:grid; grid-template-columns:repeat(3,1fr);
+  gap:8px; margin-top:4px;
+}
+.card{
+  border-radius:10px;
+  background: rgba(255,255,255,.02);
+  border:1px solid var(--outline);
+  padding:10px;
+  transition: .2s border-color, .2s background-color;
+}
+.card:hover{ border-color: var(--hairline); background: rgba(255,255,255,.03); }
+.card strong{ font-size:18px; display:block }
+.card p{ margin:4px 0 0; font-size:12px; color:var(--muted) }
+
+/* ====== CTA (flat, sans glow) ====== */
+.btn-cta{
+  width:100%; height:40px; border:1px solid color-mix(in oklab, var(--brand) 40%, #000 0%);
+  border-radius:10px;
+  background: var(--brand);
+  color:#fff; font-weight:700; cursor:pointer;
+  transition: .15s transform, .2s background-color;
+}
+.btn-cta:hover{ background:#0aa874; }
+.btn-cta:active{ transform: translateY(1px); }
+.cta-sub{ margin-top:6px; font-size:11px; color:var(--muted) }
+
+/* ====== Matterport ====== */
+.video-wrap{
+  position:relative; padding-top:56.25%;
+  border-radius:12px; overflow:hidden;
+  border:1px solid var(--hairline);
+  background: transparent;
+}
+.video-wrap iframe{
+  position:absolute; inset:0; width:100%; height:100%;
+  border:0; border-radius:12px; background:transparent;
+}
+
+/* ====== Avantages (pills plates) ====== */
+.features{ display:flex; flex-direction:column; gap:10px; margin-top:6px }
+.item{
+  border-radius:12px;
+  border:1px solid var(--outline);
+  background: rgba(255,255,255,.02);
+}
+.item-btn{
+  width:100%; display:flex; align-items:center; gap:10px;
+  padding:12px 14px; background:transparent; border:0; color:#fff; text-align:left;
+}
+.badge{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:22px; height:22px; border-radius:8px;
+  border:1px solid var(--outline); font-weight:800;
+}
+.item-text{ font-size:16px; color:#fff }
+
+/* ====== AVIS – carrousel ====== */
+.reviews h3{ display:flex; align-items:center; gap:8px }
+.rating{ color:#a7f3d0; font-weight:700 }
+
+.reviews-marquee{
+  position:relative; overflow:hidden;
+  border-radius:12px;
+  border:1px solid var(--hairline);
+  background: rgba(255,255,255,.02);
+}
+.reviews-marquee::before,
+.reviews-marquee::after{
+  content:""; position:absolute; top:0; bottom:0; width:48px; pointer-events:none; z-index:2;
+}
+.reviews-marquee::before{ left:0;  background:linear-gradient(to right, rgba(0,0,0,.15), transparent); }
+.reviews-marquee::after { right:0; background:linear-gradient(to left,  rgba(0,0,0,.15), transparent); }
+
+.reviews-track{
+  --dur: 40s; --copyW: 1200px;
+  display:flex; gap:12px; padding:10px 12px; width:max-content;
+  animation:marquee var(--dur) linear infinite;
+}
+.reviews:hover .reviews-track{ animation-play-state:paused }
+@keyframes marquee{ to{ transform: translateX(calc(-1 * var(--copyW))); } }
+
+.review-copy{ display:flex; gap:12px }
+.review{
+  flex:0 0 auto; width:360px; max-width:360px;
+  border-radius:10px; border:1px solid var(--outline);
+  background: rgba(255,255,255,.03);
+  padding:12px 14px;
+}
+.review .meta{ display:flex; align-items:center; gap:8px; margin-bottom:6px; font-weight:600 }
+.review .stars{ color:#34d399; letter-spacing:1px; font-size:12px }
+.review p{ margin:6px 0 0; font-size:13px; line-height:1.45; color:rgba(255,255,255,.92) }
+
+/* ====== MODE EMBED : retire toute bordure/ombre externe ====== */
+html.is-embed, body.is-embed { background: transparent !important; }
+html.is-embed body { margin:0 !important; padding:0 !important; }
+/* Si ta page contient autre chose que le widget, on masque ce qui n’est pas le wrapper */
+html.is-embed body > *:not(main.wrapper) { display:none !important; }
+/* Et on s’assure qu’aucune ombre/bordure ne persiste sur le wrapper */
+html.is-embed .wrapper {
+  box-shadow:none !important;
+  background:transparent !important;
+  border:0 !important;
+  outline:0 !important;
+}
+
+/* ====== Responsive ====== */
+@media (max-width:1024px){
+  .wrapper{ max-width:100%; padding:0 12px }
+  .row{ flex-direction:column }
+  .cards{ grid-template-columns:1fr }
+  .col.stats,.col.reviews,.col.cta{ flex-basis:auto }
+}
+</style>
+</head>
+
+<body>
+  <main class="wrapper">
+
+    <!-- Onglets -->
+    <nav class="glass-tabs" role="tablist" aria-label="Produits Prodecta">
+      <button class="tab-btn active" role="tab" aria-selected="true"
+              aria-controls="tab-visite" id="tabbtn-visite" data-tab="tab-visite">
+        Visite virtuelle
+      </button>
+      <button class="tab-btn" role="tab" aria-selected="false"
+              aria-controls="tab-chatbot" id="tabbtn-chatbot" data-tab="tab-chatbot">
+        Chatbot IA
+      </button>
+      <button class="tab-btn" role="tab" aria-selected="false"
+              aria-controls="tab-agent" id="tabbtn-agent" data-tab="tab-agent">
+        Agent IA
+      </button>
+    </nav>
+
+    <!-- Onglet 1 : VISITE VIRTUELLE -->
+    <section id="tab-visite" class="tab-content active" role="tabpanel" aria-labelledby="tabbtn-visite">
+      <section class="glass-panel">
+        <div class="row">
+          <div class="col stats glass-frame">
+            <h3>Chiffres clés</h3>
+            <div class="cards">
+              <div class="card"><strong>+14%</strong><p>Taux d’occupation</p></div>
+              <div class="card"><strong>×3</strong><p>Temps passé par les visiteurs</p></div>
+              <div class="card"><strong>95%</strong><p>Clients plus enclins à contacter / réserver</p></div>
+            </div>
+          </div>
+
+          <div class="col reviews glass-frame">
+            <h3>Avis clients <span class="rating">★ 5,0/5</span></h3>
+            <div class="reviews-marquee reviews">
+              <div class="reviews-track" id="reviewsTrack">
+                <div class="review-copy" id="reviewsCopy">
+                  <article class="review">
+                    <div class="meta">François Rossi · <span class="stars">★★★★★</span></div>
+                    <p>Équipe réactive et dynamique. Résultat génial, service pro et rapide. Nous recommandons&nbsp;!</p>
+                  </article>
+                  <article class="review">
+                    <div class="meta">Château d'Hénonville · <span class="stars">★★★★★</span></div>
+                    <p>Merci pour votre travail incroyable&nbsp;! Expérience immersive, défi relevé avec brio et qualité au rendez-vous.</p>
+                  </article>
+                  <article class="review">
+                    <div class="meta">Pascal Noel · <span class="stars">★★★★★</span></div>
+                    <p>Retour très positif pour 2 sites touristiques. Conseils, professionnalisme, et équipe super sympa. Bravo&nbsp;!</p>
+                  </article>
+                </div>
+                <div class="review-copy" aria-hidden="true">
+                  <article class="review">
+                    <div class="meta">François Rossi · <span class="stars">★★★★★</span></div>
+                    <p>Équipe réactive et dynamique. Résultat génial, service pro et rapide. Nous recommandons&nbsp;!</p>
+                  </article>
+                  <article class="review">
+                    <div class="meta">Château d'Hénonville · <span class="stars">★★★★★</span></div>
+                    <p>Merci pour votre travail incroyable&nbsp;! Expérience immersive, défi relevé avec brio et qualité au rendez-vous.</p>
+                  </article>
+                  <article class="review">
+                    <div class="meta">Pascal Noel · <span class="stars">★★★★★</span></div>
+                    <p>Retour très positif pour 2 sites touristiques. Conseils, professionnalisme, et équipe super sympa. Bravo&nbsp;!</p>
+                  </article>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col cta glass-frame">
+            <h3>Simuler son devis gratuitement</h3>
+            <button class="btn-cta" id="cta-btn">Lancer</button>
+            <div class="cta-sub">Sans engagement • 1 min</div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col glass-frame">
+            <div class="video-wrap">
+              <iframe
+                src="https://my.matterport.com/show?play=1&lang=fr&m=mgKtmimiGiS"
+                allow="autoplay; fullscreen; web-share; xr-spatial-tracking"
+                allowfullscreen></iframe>
+            </div>
+          </div>
+
+          <div class="col glass-frame">
+            <h3>Nos avantages</h3>
+            <div class="features">
+              <div class="item"><button class="item-btn"><span class="badge">+</span><span class="item-text">Disponible dans toutes les langues</span></button></div>
+              <div class="item"><button class="item-btn"><span class="badge">+</span><span class="item-text">Intégrable sur votre site et Google Maps</span></button></div>
+              <div class="item"><button class="item-btn"><span class="badge">+</span><span class="item-text">Liens partageables et statistiques</span></button></div>
+              <div class="item"><button class="item-btn"><span class="badge">+</span><span class="item-text">Vue 2D/3D + mesures précises</span></button></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <!-- Onglet 2 : CHATBOT IA -->
+    <section id="tab-chatbot" class="tab-content" role="tabpanel" aria-labelledby="tabbtn-chatbot" hidden>
+      <section class="glass-panel">
+        <div class="row">
+          <div class="col glass-frame">
+            <h3>Chatbot IA — résultats</h3>
+            <div class="cards">
+              <div class="card"><strong>−40%</strong><p>Charge support</p></div>
+              <div class="card"><strong>+18%</strong><p>Leads captés</p></div>
+              <div class="card"><strong>24/7</strong><p>Disponibilité</p></div>
+            </div>
+          </div>
+          <div class="col glass-frame">
+            <h3>Fonctionnalités clés</h3>
+            <ul class="bullets">
+              <li>FAQ + recherche sémantique</li>
+              <li>Prise de RDV / devis / paiement</li>
+              <li>Intégration CRM (HubSpot, Pipedrive…)</li>
+            </ul>
+          </div>
+          <div class="col glass-frame cta">
+            <h3>Tester le chatbot</h3>
+            <button class="btn-cta">Voir la démo</button>
+            <div class="cta-sub">Personnalisable • Multilingue</div>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <!-- Onglet 3 : AGENT IA -->
+    <section id="tab-agent" class="tab-content" role="tabpanel" aria-labelledby="tabbtn-agent" hidden>
+      <section class="glass-panel">
+        <div class="row">
+          <div class="col glass-frame">
+            <h3>Agent IA — prospection & qualif</h3>
+            <div class="cards">
+              <div class="card"><strong>×3</strong><p>Volume d’appels</p></div>
+              <div class="card"><strong>+27%</strong><p>RDV qualifiés</p></div>
+              <div class="card"><strong>Omni</strong><p>Voix • SMS • Mail</p></div>
+            </div>
+          </div>
+          <div class="col glass-frame">
+            <h3>Ce que fait l’agent</h3>
+            <ul class="bullets">
+              <li>Appelle, relance et qualifie en langage naturel</li>
+              <li>Lit vos fiches produit pour répondre</li>
+              <li>Envoie un récap & pousse vers le bon tunnel</li>
+            </ul>
+          </div>
+          <div class="col glass-frame cta">
+            <h3>Lancer un scénario</h3>
+            <button class="btn-cta">Démarrer un appel IA</button>
+            <div class="cta-sub">Sans code • En quelques minutes</div>
+          </div>
+        </div>
+      </section>
+    </section>
+
+  </main>
+
+<script>
+/* ====== Onglets + auto-hauteur ====== */
+(function () {
+  const btns   = Array.from(document.querySelectorAll('.tab-btn'));
+  const panels = Array.from(document.querySelectorAll('.tab-content'));
+  function setActive(id){
+    btns.forEach(b=>{
+      const on = b.dataset.tab===id;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', on?'true':'false');
+    });
+    panels.forEach(p=>{
+      const on = p.id===id;
+      p.classList.toggle('active', on);
+      p.hidden = !on;
+    });
+    const hash = id.replace('tab-','');
+    if (location.hash !== '#'+hash) history.replaceState(null,'','#'+hash);
+    try{ window._prodectaSendHeight && window._prodectaSendHeight(); }catch(e){}
+    if(id==='tab-visite' && typeof window._setMarqueeVars==='function'){ window._setMarqueeVars(); }
+  }
+  btns.forEach(b=>b.addEventListener('click',()=>setActive(b.dataset.tab)));
+  const map = { visite:'tab-visite', chatbot:'tab-chatbot', agent:'tab-agent' };
+  const wanted = map[(location.hash||'#visite').slice(1)] || 'tab-visite';
+  setActive(wanted);
+
+  const cta = document.getElementById('cta-btn');
+  if (cta) cta.addEventListener('click',()=>alert('Simulation de devis lancée !'));
+
+  window._prodectaSendHeight = function (){
+    const h = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+    try{ parent.postMessage({type:'PRODECTA_HEIGHT',height:h},'*'); }catch(e){}
+  };
+  window.addEventListener('load',  window._prodectaSendHeight);
+  window.addEventListener('resize',window._prodectaSendHeight);
+  const i = setInterval(window._prodectaSendHeight, 600);
+  setTimeout(()=>clearInterval(i), 6000);
+})();
+
+/* ====== Marquee avis ====== */
+(function(){
+  const track = document.getElementById('reviewsTrack');
+  const copy  = document.getElementById('reviewsCopy');
+  if(!track || !copy) return;
+  const SPEED = 30; // px/s
+  function setVars(){
+    const w = copy.scrollWidth;
+    track.style.setProperty('--copyW', w + 'px');
+    track.style.setProperty('--dur',  (w / SPEED) + 's');
+  }
+  window._setMarqueeVars = setVars;
+  setVars();
+  window.addEventListener('resize', setVars);
+})();
+</script>
+</body>
+</html>

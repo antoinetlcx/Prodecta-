@@ -1,0 +1,186 @@
+/* ================== BASE / TOKENS ================== */
+:root{
+  /* palette visionOS-like */
+  --panel-bg: rgba(14,14,17,.78);        /* panneau externe FONCÉ */
+  --panel-border: rgba(255,255,255,.14);
+  --panel-shadow: 0 26px 64px rgba(0,0,0,.45);
+
+  --card-bg: rgba(255,255,255,.12);      /* cartes/cloisons plus CLAIRES */
+  --card-border: rgba(255,255,255,.22);
+  --subtle-bg: rgba(255,255,255,.08);    /* puces, pills, etc. */
+  --muted: rgba(255,255,255,.70);
+
+  --brand: #10b981;                      /* vert CTA */
+}
+
+*{ box-sizing:border-box }
+html,body{
+  margin:0;
+  background:transparent !important;
+  color:#fff;
+  font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+}
+
+/* conteneur global */
+.wrapper{ max-width:1060px; margin:14px auto 8px; padding:0 14px }
+
+/* ================== ONGLETS ================== */
+.glass-tabs{
+  display:flex; gap:8px; align-items:center;
+  margin: 6px auto 14px; padding:6px;
+  width:max-content; max-width:100%;
+  background: var(--panel-bg);
+  border:1px solid var(--panel-border);
+  backdrop-filter: blur(12px) saturate(140%);
+  border-radius:14px;
+  box-shadow: var(--panel-shadow);
+}
+.tab-btn{
+  appearance:none; border:1px solid transparent;
+  background:transparent; color:#fff; font-weight:600; font-size:14px;
+  padding:8px 14px; border-radius:10px; cursor:pointer;
+  transition:.2s background-color,.2s border-color,.2s color;
+}
+.tab-btn:hover{ background: var(--subtle-bg); border-color: var(--panel-border); }
+.tab-btn.active{
+  background: color-mix(in oklab, var(--brand) 18%, transparent);
+  border-color: color-mix(in oklab, var(--brand) 30%, var(--panel-border));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--brand) 35%, transparent);
+}
+
+/* Panneaux d’onglets */
+.tab-content{ display:none }
+.tab-content.active{ display:block }
+
+/* ================== PANNEAU EXTERNE (inversion) ================== */
+/* On force ces valeurs au cas où un ancien CSS mettrait le panneau à transparent */
+body .glass-panel{
+  background: var(--panel-bg) !important;
+  border: 1px solid var(--panel-border) !important;
+  border-radius:16px !important;
+  backdrop-filter: blur(18px) saturate(140%) !important;
+  box-shadow: var(--panel-shadow) !important;
+  padding:16px 18px 14px !important;
+}
+
+/* ================== LAYOUT ================== */
+.row{ display:flex; gap:14px; margin-bottom:14px; flex-wrap:wrap }
+.row:last-child{ margin-bottom:0 }
+.col{ flex:1 1 0; min-width:300px; position:relative }
+
+/* proportions ligne 1 (facultatif) */
+.col.stats{ flex-basis:32% }
+.col.reviews{ flex-basis:46% }
+.col.cta{ flex-basis:22% }
+
+/* ================== CARTES INTERNES ================== */
+body .glass-frame{
+  background: var(--card-bg) !important;
+  border:1px solid var(--card-border) !important;
+  border-radius:14px !important;
+  backdrop-filter: blur(10px) saturate(140%) !important;
+  padding:14px;
+  overflow:hidden;
+  position:relative;
+  box-shadow: 0 14px 34px rgba(0,0,0,.28);
+}
+/* pas de reflet “bulle” */
+.glass-frame::before{ content:none !important }
+
+/* ================== CHIFFRES CLÉS ================== */
+.cards{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:4px }
+.card{
+  border-radius:10px;
+  background: var(--subtle-bg);
+  border:1px solid var(--card-border);
+  padding:10px;
+  transition:.2s border-color,.2s background-color;
+}
+.card:hover{ background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.28) }
+.card strong{ font-size:18px; display:block }
+.card p{ margin:4px 0 0; font-size:12px; color:var(--muted) }
+
+/* ================== CTA ================== */
+.btn-cta{
+  width:100%; height:40px; border:1px solid color-mix(in oklab, var(--brand) 40%, #000 0%);
+  border-radius:10px; background:var(--brand); color:#fff; font-weight:700; cursor:pointer;
+  transition:.15s transform,.2s background-color;
+}
+.btn-cta:hover{ background:#0aa874 }
+.btn-cta:active{ transform:translateY(1px) }
+.cta-sub{ margin-top:6px; font-size:11px; color:var(--muted) }
+
+/* ================== MATTERPORT ================== */
+.video-wrap{
+  position:relative; padding-top:44%;     /* compacte (56.25% si tu veux plus haut) */
+  border-radius:12px; overflow:hidden;
+  border:1px solid var(--card-border);
+  background: transparent;
+}
+.video-wrap iframe{
+  position:absolute; inset:0; width:100%; height:100%;
+  border:0; border-radius:12px; background:transparent;
+}
+
+/* ================== AVANTAGES ================== */
+.features{ display:flex; flex-direction:column; gap:10px; margin-top:6px }
+.item{
+  border-radius:12px;
+  background: var(--subtle-bg);
+  border:1px solid var(--card-border);
+}
+.item-btn{
+  width:100%; display:flex; align-items:center; gap:10px;
+  padding:12px 14px; background:transparent; border:0; color:#fff; text-align:left
+}
+.badge{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:22px; height:22px; border-radius:8px;
+  background: rgba(255,255,255,.16);
+  border:1px solid var(--card-border); font-weight:800;
+}
+.item-text{ font-size:16px }
+
+/* ================== AVIS – CARROUSEL ================== */
+.reviews h3{ display:flex; align-items:center; gap:8px }
+.rating{ color:#a7f3d0; font-weight:700 }
+
+.reviews-marquee{
+  position:relative; overflow:hidden;
+  border-radius:12px;
+  background: var(--subtle-bg);
+  border:1px solid var(--card-border);
+}
+.reviews-marquee::before,
+.reviews-marquee::after{
+  content:""; position:absolute; top:0; bottom:0; width:48px; pointer-events:none; z-index:2;
+}
+.reviews-marquee::before{ left:0;  background:linear-gradient(to right, rgba(0,0,0,.18), transparent) }
+.reviews-marquee::after { right:0; background:linear-gradient(to left,  rgba(0,0,0,.18), transparent) }
+
+.reviews-track{
+  --dur:40s; --copyW:1200px;
+  display:flex; gap:12px; padding:10px 12px; width:max-content;
+  animation:marquee var(--dur) linear infinite;
+}
+.reviews:hover .reviews-track{ animation-play-state:paused }
+@keyframes marquee{ to{ transform: translateX(calc(-1 * var(--copyW))) } }
+
+.review-copy{ display:flex; gap:12px }
+.review{
+  flex:0 0 auto; width:360px; max-width:360px;
+  border-radius:10px; border:1px solid var(--card-border);
+  background: rgba(255,255,255,.14);
+  padding:12px 14px;
+}
+.review .meta{ display:flex; align-items:center; gap:8px; margin-bottom:6px; font-weight:600 }
+.review .stars{ color:#34d399; letter-spacing:1px; font-size:12px }
+.review p{ margin:6px 0 0; font-size:13px; line-height:1.45; color:rgba(255,255,255,.92) }
+
+/* ================== RESPONSIVE ================== */
+@media (max-width:1024px){
+  .wrapper{ max-width:100%; padding:0 12px }
+  .row{ flex-direction:column }
+  .cards{ grid-template-columns:1fr }
+  .col.stats,.col.reviews,.col.cta{ flex-basis:auto }
+}
