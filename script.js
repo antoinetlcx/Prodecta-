@@ -44,3 +44,17 @@ if (container) {
 
   resetList();
 }
+
+const bar = document.querySelector('.slide-bar');
+if (bar) {
+  const btns = bar.querySelectorAll('.slide-btn');
+  const slides = document.querySelectorAll('.slide');
+  btns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const target = btn.dataset.slide;
+      btns.forEach((b) => b.classList.toggle('active', b === btn));
+      slides.forEach((s) => s.classList.toggle('active', s.id === target));
+      try { window._prodectaSendHeight && window._prodectaSendHeight(); } catch (e) {}
+    });
+  });
+}

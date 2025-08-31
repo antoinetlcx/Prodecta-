@@ -102,6 +102,28 @@ h3{ margin:0 0 10px; font-size:18px; font-weight:700 }
   box-shadow: 0 10px 26px rgba(0,0,0,.28);
 }
 
+/* ====== Slider vertical ====== */
+.slider{ display:flex; gap:14px; }
+.slide-bar{ display:flex; flex-direction:column; gap:8px; }
+.slide-btn{
+  appearance:none;
+  border:1px solid var(--hairline);
+  background: var(--surface);
+  color:#fff;
+  font-size:14px;
+  padding:8px 12px;
+  border-radius:10px;
+  cursor:pointer;
+  text-align:left;
+}
+.slide-btn.active{
+  background: color-mix(in oklab, var(--brand) 18%, transparent);
+  border-color: color-mix(in oklab, var(--brand) 30%, var(--hairline));
+}
+.slides{ flex:1; }
+.slide{ display:none; }
+.slide.active{ display:block; }
+
 /* ====== Chiffres clés ====== */
 .cards{
   display:grid; grid-template-columns:repeat(3,1fr);
@@ -241,76 +263,89 @@ html.is-embed .wrapper {
     <!-- Onglet 1 : VISITE VIRTUELLE -->
     <section id="tab-visite" class="tab-content active" role="tabpanel" aria-labelledby="tabbtn-visite">
       <section class="glass-panel">
-        <div class="row">
-          <div class="col stats glass-frame">
-            <h3>Chiffres clés</h3>
-            <div class="cards">
-              <div class="card"><strong>+14%</strong><p>Taux d’occupation</p></div>
-              <div class="card"><strong>×3</strong><p>Temps passé par les visiteurs</p></div>
-              <div class="card"><strong>95%</strong><p>Clients plus enclins à contacter / réserver</p></div>
-            </div>
-          </div>
-
-          <div class="col reviews glass-frame">
-            <h3>Avis clients <span class="rating">★ 5,0/5</span></h3>
-            <div class="reviews-marquee reviews">
-              <div class="reviews-track" id="reviewsTrack">
-                <div class="review-copy" id="reviewsCopy">
-                  <article class="review">
-                    <div class="meta">François Rossi · <span class="stars">★★★★★</span></div>
-                    <p>Équipe réactive et dynamique. Résultat génial, service pro et rapide. Nous recommandons&nbsp;!</p>
-                  </article>
-                  <article class="review">
-                    <div class="meta">Château d'Hénonville · <span class="stars">★★★★★</span></div>
-                    <p>Merci pour votre travail incroyable&nbsp;! Expérience immersive, défi relevé avec brio et qualité au rendez-vous.</p>
-                  </article>
-                  <article class="review">
-                    <div class="meta">Pascal Noel · <span class="stars">★★★★★</span></div>
-                    <p>Retour très positif pour 2 sites touristiques. Conseils, professionnalisme, et équipe super sympa. Bravo&nbsp;!</p>
-                  </article>
+        <div class="slider">
+          <nav class="slide-bar">
+            <button class="slide-btn active" data-slide="slide1">Chiffre clé/Avis client</button>
+            <button class="slide-btn" data-slide="slide2">Visite virtuelle/ Avantages</button>
+            <button class="slide-btn" data-slide="slide3">Simuler son devis</button>
+          </nav>
+          <div class="slides">
+            <div class="slide active" id="slide1">
+              <div class="row">
+                <div class="col stats glass-frame">
+                  <h3>Chiffres clés</h3>
+                  <div class="cards">
+                    <div class="card"><strong>+14%</strong><p>Taux d’occupation</p></div>
+                    <div class="card"><strong>×3</strong><p>Temps passé par les visiteurs</p></div>
+                    <div class="card"><strong>95%</strong><p>Clients plus enclins à contacter / réserver</p></div>
+                  </div>
                 </div>
-                <div class="review-copy" aria-hidden="true">
-                  <article class="review">
-                    <div class="meta">François Rossi · <span class="stars">★★★★★</span></div>
-                    <p>Équipe réactive et dynamique. Résultat génial, service pro et rapide. Nous recommandons&nbsp;!</p>
-                  </article>
-                  <article class="review">
-                    <div class="meta">Château d'Hénonville · <span class="stars">★★★★★</span></div>
-                    <p>Merci pour votre travail incroyable&nbsp;! Expérience immersive, défi relevé avec brio et qualité au rendez-vous.</p>
-                  </article>
-                  <article class="review">
-                    <div class="meta">Pascal Noel · <span class="stars">★★★★★</span></div>
-                    <p>Retour très positif pour 2 sites touristiques. Conseils, professionnalisme, et équipe super sympa. Bravo&nbsp;!</p>
-                  </article>
+                <div class="col reviews glass-frame">
+                  <h3>Avis clients <span class="rating">★ 5,0/5</span></h3>
+                  <div class="reviews-marquee reviews">
+                    <div class="reviews-track" id="reviewsTrack">
+                      <div class="review-copy" id="reviewsCopy">
+                        <article class="review">
+                          <div class="meta">François Rossi · <span class="stars">★★★★★</span></div>
+                          <p>Équipe réactive et dynamique. Résultat génial, service pro et rapide. Nous recommandons&nbsp;!</p>
+                        </article>
+                        <article class="review">
+                          <div class="meta">Château d'Hénonville · <span class="stars">★★★★★</span></div>
+                          <p>Merci pour votre travail incroyable&nbsp;! Expérience immersive, défi relevé avec brio et qualité au rendez-vous.</p>
+                        </article>
+                        <article class="review">
+                          <div class="meta">Pascal Noel · <span class="stars">★★★★★</span></div>
+                          <p>Retour très positif pour 2 sites touristiques. Conseils, professionnalisme, et équipe super sympa. Bravo&nbsp;!</p>
+                        </article>
+                      </div>
+                      <div class="review-copy" aria-hidden="true">
+                        <article class="review">
+                          <div class="meta">François Rossi · <span class="stars">★★★★★</span></div>
+                          <p>Équipe réactive et dynamique. Résultat génial, service pro et rapide. Nous recommandons&nbsp;!</p>
+                        </article>
+                        <article class="review">
+                          <div class="meta">Château d'Hénonville · <span class="stars">★★★★★</span></div>
+                          <p>Merci pour votre travail incroyable&nbsp;! Expérience immersive, défi relevé avec brio et qualité au rendez-vous.</p>
+                        </article>
+                        <article class="review">
+                          <div class="meta">Pascal Noel · <span class="stars">★★★★★</span></div>
+                          <p>Retour très positif pour 2 sites touristiques. Conseils, professionnalisme, et équipe super sympa. Bravo&nbsp;!</p>
+                        </article>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-
-          <div class="col cta glass-frame">
-            <h3>Simuler son devis gratuitement</h3>
-            <button class="btn-cta" id="cta-btn">Lancer</button>
-            <div class="cta-sub">Sans engagement • 1 min</div>
-          </div>
-        </div>
-
-        <div class="row">
-          <div class="col glass-frame">
-            <div class="video-wrap">
-              <iframe
-                src="https://my.matterport.com/show?play=1&lang=fr&m=mgKtmimiGiS"
-                allow="autoplay; fullscreen; web-share; xr-spatial-tracking"
-                allowfullscreen></iframe>
+            <div class="slide" id="slide2">
+              <div class="row">
+                <div class="col glass-frame">
+                  <div class="video-wrap">
+                    <iframe
+                      src="https://my.matterport.com/show?play=1&lang=fr&m=mgKtmimiGiS"
+                      allow="autoplay; fullscreen; web-share; xr-spatial-tracking"
+                      allowfullscreen></iframe>
+                  </div>
+                </div>
+                <div class="col glass-frame">
+                  <h3>Nos avantages</h3>
+                  <div class="features" id="features">
+                    <div class="item" data-detail="Détection automatique de la langue du navigateur et bascule manuelle. Les contenus (textes, hotspots, call-to-actions) sont synchronisés multi-langues pour un SEO international propre."><button class="item-btn"><span class="badge">+</span><span class="item-text">Disponible dans toutes les langues</span></button></div>
+                    <div class="item" data-detail="Intégration en iframe sur votre site en quelques lignes, ouverture plein écran, et ajout sur votre fiche Google Business. Compatible CMS (WordPress, Webflow, Shopify)."><button class="item-btn"><span class="badge">+</span><span class="item-text">Intégrable sur votre site et Google Maps</span></button></div>
+                    <div class="item" data-detail="Générez des liens trackés (UTM), suivez vues, temps moyen, clics sur hotspots et formulaires. Export CSV pour vos rapports ou votre CRM."><button class="item-btn"><span class="badge">+</span><span class="item-text">Liens partageables et statistiques</span></button></div>
+                    <div class="item" data-detail="Plan 2D, vue ‘maison de poupée’ 3D et outil de mesure intégré (précision élevée). Idéal pour préparer événements, aménagements et devis techniques."><button class="item-btn"><span class="badge">+</span><span class="item-text">Vue 2D/3D + mesures précises</span></button></div>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-
-          <div class="col glass-frame">
-            <h3>Nos avantages</h3>
-            <div class="features" id="features">
-              <div class="item" data-detail="Détection automatique de la langue du navigateur et bascule manuelle. Les contenus (textes, hotspots, call-to-actions) sont synchronisés multi-langues pour un SEO international propre."><button class="item-btn"><span class="badge">+</span><span class="item-text">Disponible dans toutes les langues</span></button></div>
-              <div class="item" data-detail="Intégration en iframe sur votre site en quelques lignes, ouverture plein écran, et ajout sur votre fiche Google Business. Compatible CMS (WordPress, Webflow, Shopify)."><button class="item-btn"><span class="badge">+</span><span class="item-text">Intégrable sur votre site et Google Maps</span></button></div>
-              <div class="item" data-detail="Générez des liens trackés (UTM), suivez vues, temps moyen, clics sur hotspots et formulaires. Export CSV pour vos rapports ou votre CRM."><button class="item-btn"><span class="badge">+</span><span class="item-text">Liens partageables et statistiques</span></button></div>
-              <div class="item" data-detail="Plan 2D, vue ‘maison de poupée’ 3D et outil de mesure intégré (précision élevée). Idéal pour préparer événements, aménagements et devis techniques."><button class="item-btn"><span class="badge">+</span><span class="item-text">Vue 2D/3D + mesures précises</span></button></div>
+            <div class="slide" id="slide3">
+              <div class="row">
+                <div class="col cta glass-frame">
+                  <h3>Simuler son devis gratuitement</h3>
+                  <button class="btn-cta" id="cta-btn">Lancer</button>
+                  <div class="cta-sub">Sans engagement • 1 min</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

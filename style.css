@@ -87,6 +87,28 @@ body .glass-frame{
 /* pas de reflet “bulle” */
 .glass-frame::before{ content:none !important }
 
+/* ================== SLIDER ================== */
+.slider{ display:flex; gap:14px }
+.slide-bar{ display:flex; flex-direction:column; gap:8px }
+.slide-btn{
+  appearance:none;
+  border:1px solid var(--card-border);
+  background: var(--card-bg);
+  color:#fff;
+  font-size:14px;
+  padding:8px 12px;
+  border-radius:10px;
+  cursor:pointer;
+  text-align:left;
+}
+.slide-btn.active{
+  background: color-mix(in oklab, var(--brand) 18%, transparent);
+  border-color: color-mix(in oklab, var(--brand) 30%, var(--card-border));
+}
+.slides{ flex:1 }
+.slide{ display:none }
+.slide.active{ display:block }
+
 /* ================== CHIFFRES CLÉS ================== */
 .cards{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:4px }
 .card{
