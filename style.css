@@ -140,6 +140,12 @@ body .glass-frame{
   border:1px solid var(--card-border); font-weight:800;
 }
 .item-text{ font-size:16px }
+.item-detail{
+  margin-top:10px;
+  font-size:14px;
+  line-height:1.45;
+  color:var(--muted);
+}
 
 /* ================== AVIS – CARROUSEL ================== */
 .reviews h3{ display:flex; align-items:center; gap:8px }

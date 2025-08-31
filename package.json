@@ -1,0 +1,9 @@
+{
+  "name": "prodecta-widget",
+  "version": "1.0.0",
+  "description": "Prodecta demo widget",
+  "scripts": {
+    "test": "echo \"No tests configured\""
+  },
+  "license": "ISC"
+}
