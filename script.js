@@ -1,9 +1,3 @@
-// CTA démo
-document.getElementById('cta-btn').addEventListener('click', function () {
-  alert('Simulation de devis lancée !');
-});
-
-// Données des avantages
 const FEATURES = [
   {
     t: 'Disponible dans toutes les langues',
@@ -23,27 +17,50 @@ const FEATURES = [
   }
 ];
 
-// Interactions “Nos avantages”
-const list   = document.getElementById('features-list');
-const detail = document.getElementById('feature-detail');
+const container = document.getElementById('features');
+if (container) {
+  function renderList() {
+    container.innerHTML = '';
+    FEATURES.forEach((f, i) => {
+      const item = document.createElement('div');
+      item.className = 'item';
+      const btn = document.createElement('button');
+      btn.className = 'item-btn';
+      btn.setAttribute('data-index', i);
+      btn.innerHTML = `<span class="badge">+</span><span class="item-text">${f.t}</span>`;
+      item.appendChild(btn);
+      container.appendChild(item);
+    });
+    try { window._prodectaSendHeight && window._prodectaSendHeight(); } catch (e) {}
+  }
 
-function setActive(i){
-  // toggle visuel
-  list.querySelectorAll('.feat-item').forEach(li => li.classList.remove('active'));
-  const li = list.querySelector(`.feat-item[data-index="${i}"]`);
-  if(li) li.classList.add('active');
-  // maj contenu
-  detail.querySelector('.feat-detail-title').textContent = FEATURES[i].t;
-  detail.querySelector('.feat-detail-text').textContent  = FEATURES[i].d;
+  function renderDetail(i) {
+    container.innerHTML = '';
+    const item = document.createElement('div');
+    item.className = 'item';
+    const btn = document.createElement('button');
+    btn.className = 'item-btn active';
+    btn.setAttribute('data-index', i);
+    btn.innerHTML = `<span class="badge">−</span><span class="item-text">${FEATURES[i].t}</span>`;
+    item.appendChild(btn);
+    container.appendChild(item);
+    const detail = document.createElement('div');
+    detail.className = 'item-detail';
+    detail.textContent = FEATURES[i].d;
+    container.appendChild(detail);
+    try { window._prodectaSendHeight && window._prodectaSendHeight(); } catch (e) {}
+  }
+
+  container.addEventListener('click', (e) => {
+    const btn = e.target.closest('.item-btn');
+    if (!btn) return;
+    const i = parseInt(btn.dataset.index, 10);
+    if (btn.classList.contains('active')) {
+      renderList();
+    } else {
+      renderDetail(i);
+    }
+  });
+
+  renderList();
 }
-
-// clic sur un item
-list.addEventListener('click', (e)=>{
-  const li = e.target.closest('.feat-item');
-  if(!li) return;
-  const i = parseInt(li.getAttribute('data-index'),10) || 0;
-  setActive(i);
-});
-
-// valeur par défaut
-setActive(0);
