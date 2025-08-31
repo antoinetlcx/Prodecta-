@@ -1,7 +1,10 @@
 // CTA démo
-document.getElementById('cta-btn').addEventListener('click', function () {
-  alert('Simulation de devis lancée !');
-});
+const cta = document.getElementById('cta-btn');
+if (cta) {
+  cta.addEventListener('click', function () {
+    alert('Simulation de devis lancée !');
+  });
+}
 
 // Données des avantages
 const FEATURES = [
@@ -24,26 +27,28 @@ const FEATURES = [
 ];
 
 // Interactions “Nos avantages”
-const list   = document.getElementById('features-list');
+const list = document.getElementById('features-list');
 const detail = document.getElementById('feature-detail');
 
-function setActive(i){
+function setActive(i) {
   // toggle visuel
   list.querySelectorAll('.feat-item').forEach(li => li.classList.remove('active'));
   const li = list.querySelector(`.feat-item[data-index="${i}"]`);
-  if(li) li.classList.add('active');
+  if (li) li.classList.add('active');
   // maj contenu
   detail.querySelector('.feat-detail-title').textContent = FEATURES[i].t;
-  detail.querySelector('.feat-detail-text').textContent  = FEATURES[i].d;
+  detail.querySelector('.feat-detail-text').textContent = FEATURES[i].d;
 }
 
-// clic sur un item
-list.addEventListener('click', (e)=>{
-  const li = e.target.closest('.feat-item');
-  if(!li) return;
-  const i = parseInt(li.getAttribute('data-index'),10) || 0;
-  setActive(i);
-});
+if (list && detail) {
+  // clic sur un item
+  list.addEventListener('click', (e) => {
+    const li = e.target.closest('.feat-item');
+    if (!li) return;
+    const i = parseInt(li.getAttribute('data-index'), 10) || 0;
+    setActive(i);
+  });
 
-// valeur par défaut
-setActive(0);
+  // valeur par défaut
+  setActive(0);
+}
