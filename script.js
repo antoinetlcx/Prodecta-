@@ -1,49 +1,46 @@
-// CTA démo
-document.getElementById('cta-btn').addEventListener('click', function () {
-  alert('Simulation de devis lancée !');
-});
+const container = document.getElementById('features');
+if (container) {
+  const items = Array.from(container.querySelectorAll('.item'));
 
-// Données des avantages
-const FEATURES = [
-  {
-    t: 'Disponible dans toutes les langues',
-    d: "Détection automatique de la langue du navigateur et bascule manuelle. Les contenus (textes, hotspots, call-to-actions) sont synchronisés multi-langues pour un SEO international propre."
-  },
-  {
-    t: 'Intégrable sur votre site et Google Maps',
-    d: "Intégration en iframe sur votre site en quelques lignes, ouverture plein écran, et ajout sur votre fiche Google Business. Compatible CMS (WordPress, Webflow, Shopify)."
-  },
-  {
-    t: 'Liens partageables et statistiques',
-    d: "Générez des liens trackés (UTM), suivez vues, temps moyen, clics sur hotspots et formulaires. Export CSV pour vos rapports ou votre CRM."
-  },
-  {
-    t: 'Vue 2D/3D + mesures précises',
-    d: "Plan 2D, vue ‘maison de poupée’ 3D et outil de mesure intégré (précision élevée). Idéal pour préparer événements, aménagements et devis techniques."
+  function resetList() {
+    items.forEach((item) => {
+      item.style.display = '';
+      const btn = item.querySelector('.item-btn');
+      btn.classList.remove('active');
+      const badge = btn.querySelector('.badge');
+      if (badge) badge.textContent = '+';
+    });
+    const detail = container.querySelector('.item-detail');
+    if (detail) detail.remove();
+    try { window._prodectaSendHeight && window._prodectaSendHeight(); } catch (e) {}
   }
-];
 
-// Interactions “Nos avantages”
-const list   = document.getElementById('features-list');
-const detail = document.getElementById('feature-detail');
+  function showDetail(item) {
+    items.forEach((it) => {
+      if (it !== item) it.style.display = 'none';
+    });
+    const btn = item.querySelector('.item-btn');
+    btn.classList.add('active');
+    const badge = btn.querySelector('.badge');
+    if (badge) badge.textContent = '−';
+    const detail = document.createElement('div');
+    detail.className = 'item-detail';
+    detail.textContent = item.dataset.detail;
+    container.appendChild(detail);
+    try { window._prodectaSendHeight && window._prodectaSendHeight(); } catch (e) {}
+  }
 
-function setActive(i){
-  // toggle visuel
-  list.querySelectorAll('.feat-item').forEach(li => li.classList.remove('active'));
-  const li = list.querySelector(`.feat-item[data-index="${i}"]`);
-  if(li) li.classList.add('active');
-  // maj contenu
-  detail.querySelector('.feat-detail-title').textContent = FEATURES[i].t;
-  detail.querySelector('.feat-detail-text').textContent  = FEATURES[i].d;
+  container.addEventListener('click', (e) => {
+    const btn = e.target.closest('.item-btn');
+    if (!btn) return;
+    const item = btn.closest('.item');
+    if (btn.classList.contains('active')) {
+      resetList();
+    } else {
+      resetList();
+      showDetail(item);
+    }
+  });
+
+  resetList();
 }
-
-// clic sur un item
-list.addEventListener('click', (e)=>{
-  const li = e.target.closest('.feat-item');
-  if(!li) return;
-  const i = parseInt(li.getAttribute('data-index'),10) || 0;
-  setActive(i);
-});
-
-// valeur par défaut
-setActive(0);

@@ -306,11 +306,11 @@ html.is-embed .wrapper {
 
           <div class="col glass-frame">
             <h3>Nos avantages</h3>
-            <div class="features">
-              <div class="item"><button class="item-btn"><span class="badge">+</span><span class="item-text">Disponible dans toutes les langues</span></button></div>
-              <div class="item"><button class="item-btn"><span class="badge">+</span><span class="item-text">Intégrable sur votre site et Google Maps</span></button></div>
-              <div class="item"><button class="item-btn"><span class="badge">+</span><span class="item-text">Liens partageables et statistiques</span></button></div>
-              <div class="item"><button class="item-btn"><span class="badge">+</span><span class="item-text">Vue 2D/3D + mesures précises</span></button></div>
+            <div class="features" id="features">
+              <div class="item" data-detail="Détection automatique de la langue du navigateur et bascule manuelle. Les contenus (textes, hotspots, call-to-actions) sont synchronisés multi-langues pour un SEO international propre."><button class="item-btn"><span class="badge">+</span><span class="item-text">Disponible dans toutes les langues</span></button></div>
+              <div class="item" data-detail="Intégration en iframe sur votre site en quelques lignes, ouverture plein écran, et ajout sur votre fiche Google Business. Compatible CMS (WordPress, Webflow, Shopify)."><button class="item-btn"><span class="badge">+</span><span class="item-text">Intégrable sur votre site et Google Maps</span></button></div>
+              <div class="item" data-detail="Générez des liens trackés (UTM), suivez vues, temps moyen, clics sur hotspots et formulaires. Export CSV pour vos rapports ou votre CRM."><button class="item-btn"><span class="badge">+</span><span class="item-text">Liens partageables et statistiques</span></button></div>
+              <div class="item" data-detail="Plan 2D, vue ‘maison de poupée’ 3D et outil de mesure intégré (précision élevée). Idéal pour préparer événements, aménagements et devis techniques."><button class="item-btn"><span class="badge">+</span><span class="item-text">Vue 2D/3D + mesures précises</span></button></div>
             </div>
           </div>
         </div>
@@ -432,5 +432,6 @@ html.is-embed .wrapper {
   window.addEventListener('resize', setVars);
 })();
 </script>
+<script src="script.js"></script>
 </body>
 </html>
