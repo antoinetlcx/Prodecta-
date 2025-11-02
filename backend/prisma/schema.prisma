@@ -1,0 +1,207 @@
+// Schema Prisma pour Oulia
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// Modèle Hôte (propriétaire)
+model Host {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password      String
+  firstName     String
+  lastName      String
+  phone         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  properties    Property[]
+  notifications Notification[]
+}
+
+// Modèle Logement
+model Property {
+  id              String    @id @default(uuid())
+  name            String
+  description     String?
+  address         String
+  city            String
+  country         String
+  latitude        Float?
+  longitude       Float?
+  photos          String?   // JSON array of photo URLs
+  equipments      String?   // JSON array of equipment
+  qrCode          String?   // URL du QR code
+  accessLink      String    @unique // lien unique pour accéder à l'assistant
+
+  // Personnalisation de l'assistant
+  aiPrompt        String?   // Instructions personnalisées pour Oulia
+  aiTone          String    @default("accueillant") // ton de voix
+  aiPersonality   String?   // personnalité
+
+  hostId          String
+  host            Host      @relation(fields: [hostId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  knowledgeBase   KnowledgeItem[]
+  services        Service[]
+  checkInGuides   CheckInGuide[]
+  conversations   Conversation[]
+  issues          Issue[]
+  analytics       Analytics[]
+}
+
+// Base de connaissances (fichiers, textes, instructions)
+model KnowledgeItem {
+  id          String    @id @default(uuid())
+  title       String
+  content     String    // Texte ou chemin vers fichier
+  type        String    // "text", "pdf", "image", "video"
+  fileUrl     String?   // URL du fichier si applicable
+  category    String?   // "wifi", "appliances", "rules", "local_info", etc.
+
+  propertyId  String
+  property    Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// Services (payants ou inclus)
+model Service {
+  id          String    @id @default(uuid())
+  name        String
+  description String?
+  price       Float?    // null si inclus
+  isPaid      Boolean   @default(false)
+  isAvailable Boolean   @default(true)
+  category    String    // "breakfast", "spa", "shuttle", "activities", etc.
+
+  propertyId  String
+  property    Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  bookings    ServiceBooking[]
+}
+
+// Réservations de services
+model ServiceBooking {
+  id          String    @id @default(uuid())
+  guestName   String
+  guestEmail  String?
+  guestPhone  String?
+  date        DateTime
+  status      String    @default("pending") // "pending", "confirmed", "cancelled"
+  notes       String?
+
+  serviceId   String
+  service     Service   @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  conversationId String?
+  conversation   Conversation? @relation(fields: [conversationId], references: [id])
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// Guide de check-in
+model CheckInGuide {
+  id          String    @id @default(uuid())
+  step        Int       // ordre des étapes
+  title       String
+  description String
+  mediaType   String?   // "text", "image", "video", "audio"
+  mediaUrl    String?
+
+  propertyId  String
+  property    Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// Conversations (historique des chats)
+model Conversation {
+  id          String    @id @default(uuid())
+  guestName   String?
+  language    String    @default("fr")
+  startedAt   DateTime  @default(now())
+  endedAt     DateTime?
+
+  propertyId  String
+  property    Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  messages    Message[]
+  bookings    ServiceBooking[]
+}
+
+// Messages individuels
+model Message {
+  id              String    @id @default(uuid())
+  role            String    // "user" ou "assistant"
+  content         String
+  contentType     String    @default("text") // "text", "image", "audio"
+  mediaUrl        String?   // URL si image ou audio
+  translation     String?   // traduction si applicable
+
+  conversationId  String
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime  @default(now())
+}
+
+// Problèmes signalés
+model Issue {
+  id          String    @id @default(uuid())
+  description String
+  category    String?   // "leak", "malfunction", "access", "other"
+  status      String    @default("open") // "open", "in_progress", "resolved"
+  priority    String    @default("medium") // "low", "medium", "high"
+  imageUrl    String?   // photo du problème
+  resolvedAt  DateTime?
+  resolution  String?   // notes de résolution
+
+  propertyId  String
+  property    Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// Notifications pour l'hôte
+model Notification {
+  id          String    @id @default(uuid())
+  title       String
+  message     String
+  type        String    // "issue", "booking", "question", "info"
+  isRead      Boolean   @default(false)
+  link        String?   // lien vers la ressource concernée
+
+  hostId      String
+  host        Host      @relation(fields: [hostId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime  @default(now())
+}
+
+// Analytics / Statistiques
+model Analytics {
+  id              String    @id @default(uuid())
+  date            DateTime  @default(now())
+  conversationCount Int     @default(0)
+  messageCount    Int       @default(0)
+  averageRating   Float?
+  topQuestions    String?   // JSON array des questions fréquentes
+  languages       String?   // JSON array des langues utilisées
+
+  propertyId      String
+  property        Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+}
