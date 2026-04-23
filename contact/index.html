@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contact | Prodecta</title>
+  <link rel="stylesheet" href="../style.css" />
+</head>
+<body>
+  <main class="site-shell">
+    <nav class="top-nav">
+      <a class="brand" href="/">Prodecta</a>
+      <div class="top-nav-links">
+        <a href="/a-propos/">À propos</a>
+        <a class="active" href="/contact/">Contact</a>
+        <a href="/mentions-legales/">Mentions légales</a>
+        <a href="/politique-de-confidentialite/">Confidentialité</a>
+      </div>
+    </nav>
+
+    <section class="panel">
+      <h1>Contact</h1>
+      <p class="muted">Parlez-nous de votre projet. Nous revenons vers vous sous 24h ouvrées.</p>
+    </section>
+
+    <section class="grid-2">
+      <article class="panel">
+        <h2>Coordonnées</h2>
+        <p><strong>Téléphone :</strong> <a href="tel:+33189000000">+33 1 89 00 00 00</a></p>
+        <p><strong>Email :</strong> <a href="mailto:contact@prodecta.fr">contact@prodecta.fr</a></p>
+        <p><strong>Adresse :</strong> 42 avenue des Lumières, 75008 Paris, France</p>
+
+        <div class="map-wrap">
+          <iframe
+            title="Mini-carte Prodecta"
+            loading="lazy"
+            referrerpolicy="no-referrer-when-downgrade"
+            src="https://www.openstreetmap.org/export/embed.html?bbox=2.3007%2C48.8672%2C2.3207%2C48.8772&layer=mapnik&marker=48.8722%2C2.3107"></iframe>
+        </div>
+      </article>
+
+      <article class="panel">
+        <h2>Formulaire</h2>
+        <form class="form-grid" action="#" method="post">
+          <label for="nom">Nom</label>
+          <input id="nom" name="nom" type="text" autocomplete="name" required />
+
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" autocomplete="email" required />
+
+          <label for="telephone">Téléphone</label>
+          <input id="telephone" name="telephone" type="tel" autocomplete="tel" />
+
+          <label for="message">Message</label>
+          <textarea id="message" name="message" required placeholder="Décrivez votre besoin : secteur, délais, budget estimatif..."></textarea>
+
+          <button class="btn" type="submit">Envoyer la demande</button>
+        </form>
+      </article>
+    </section>
+  </main>
+</body>
+</html>
