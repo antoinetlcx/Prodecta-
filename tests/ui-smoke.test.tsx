@@ -1,11 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ProdectaApp } from "@/components/ProdectaApp";
-import {
-  buildFollowupFallback,
-  buildPreparationFallback,
-  defaultMeetingContext
-} from "@/lib/sales-knowledge";
+import { buildFollowupFallback } from "@/lib/sales-knowledge";
 
 function jsonResponse(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -42,6 +38,8 @@ describe("Prodecta connected dashboard smoke", () => {
                   description: "Qualifier le besoin.",
                   attendees: ["sophie@example.com"],
                   prospectName: "Chateau test",
+                  matchedProspectId: "prospect-1",
+                  preparationStatus: "a_faire",
                   source: "demo"
                 }
               ]
@@ -80,12 +78,16 @@ describe("Prodecta connected dashboard smoke", () => {
                   company: "Chateau test",
                   email: "sophie@example.com",
                   sector: "chateau_domaine",
-                  pipelineStatus: "chaud",
+                  pipelineStatus: "Purchase",
+                  pipelineStatusRaw: "Purchase",
+                  isPurchase: true,
                   need: "Projeter les futurs maries",
                   potentialAmount: 24000,
                   lastContactAt: "2026-06-01T10:00:00+02:00",
                   followupDate: "2026-06-05T10:00:00+02:00",
-                  nextAction: ""
+                  nextActionDate: "2026-06-05T10:00:00+02:00",
+                  nextAction: "",
+                  enrichedNotes: "Tres interessee, devis a relancer"
                 }
               ]
             }
@@ -103,6 +105,12 @@ describe("Prodecta connected dashboard smoke", () => {
                   subject: "Budget Prodecta",
                   snippet: "Nous devons regarder le budget et choisir la prochaine etape.",
                   prospectName: "Chateau test",
+                  matchedProspectId: "prospect-1",
+                  lastMessageAt: "2026-06-06T09:00:00+02:00",
+                  lastMessageFromMe: false,
+                  commercialStatus: "a_repondre",
+                  needsReply: true,
+                  daysSinceLastMessage: 0,
                   source: "demo"
                 }
               ]
@@ -110,11 +118,27 @@ describe("Prodecta connected dashboard smoke", () => {
           });
         }
 
-        if (url.endsWith("/api/prepare-rdv")) {
+        if (url.endsWith("/api/integrations/gmail/unanswered")) {
           return jsonResponse({
-            demoMode: false,
-            model: "mock",
-            data: buildPreparationFallback(defaultMeetingContext)
+            demoMode: true,
+            data: {
+              message: "Threads Gmail commerciaux analyses.",
+              threads: [
+                {
+                  id: "thread-1",
+                  subject: "Budget Prodecta",
+                  snippet: "Nous devons regarder le budget et choisir la prochaine etape.",
+                  prospectName: "Chateau test",
+                  matchedProspectId: "prospect-1",
+                  lastMessageAt: "2026-06-06T09:00:00+02:00",
+                  lastMessageFromMe: false,
+                  commercialStatus: "a_repondre",
+                  needsReply: true,
+                  daysSinceLastMessage: 0,
+                  source: "demo"
+                }
+              ]
+            }
           });
         }
 
@@ -227,8 +251,8 @@ describe("Prodecta connected dashboard smoke", () => {
     await screen.findByText("Dashboard commercial synchronise.");
 
     fireEvent.click(screen.getByTitle("RDV"));
-    fireEvent.click(screen.getByRole("button", { name: /^Preparer$/i }));
-    await screen.findByText("Preparation avancee generee.");
+    fireEvent.click(screen.getByRole("button", { name: /Marquer pret/i }));
+    await screen.findByText("Preparation RDV locale prete.");
 
     fireEvent.click(screen.getByTitle("Relances"));
     fireEvent.click(screen.getByRole("button", { name: /^Generer$/i }));

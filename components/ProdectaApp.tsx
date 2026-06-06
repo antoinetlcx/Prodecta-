@@ -31,27 +31,35 @@ import {
 import type {
   CommercialMeeting,
   CommercialTask,
+  DailyPriorityItem,
   DealMaturity,
   FollowupStrategy,
+  FollowupOpportunity,
   GmailThreadSummary,
   IntegrationStatus,
   MeetingContext,
+  MeetingPreparation,
   MeetingType,
-  Preparation,
   SalesProspect,
   Sector,
   StoredFollowup,
+  TaskSuggestion,
   TrainingCategory
 } from "@/lib/types";
 import {
+  buildDailyPriorityItems,
   buildFollowupTemplate,
+  buildFollowupOpportunities,
+  buildMeetingPreparation,
   buildSalesAdvice,
+  buildTaskSuggestion,
+  enrichProspectPriority,
+  salesDateUtils,
   summarizeDashboardAdvice,
   type SalesAdvice
 } from "@/lib/sales-advice";
 import {
   buildFollowupFallback,
-  buildPreparationFallback,
   defaultMeetingContext,
   objectionPlaybook,
   prodectaScripts,
@@ -150,14 +158,21 @@ const fallbackProspects: SalesProspect[] = [
     company: "Chateau de la Cour Senlisse",
     email: "sophie@example.com",
     sector: "chateau_domaine",
-    pipelineStatus: "chaud",
+    pipelineStatus: "Purchase",
+    pipelineStatusRaw: "Purchase",
+    isPurchase: true,
     source: "Airtable demo",
     need: "Mieux projeter les visiteurs avant visite",
     potentialAmount: 24000,
     lastContactAt: DEMO_LAST_CONTACT_4D,
     nextAction: "",
+    nextActionDate: DEMO_TODAY,
     followupDate: DEMO_TODAY,
-    notes: "Interet fort, mais next step a clarifier.",
+    notes: "Tres interessee par deux scenarios. Devis a cadrer avec associe.",
+    enrichedNotes: "Tres interessee par deux scenarios. Devis a cadrer avec associe.",
+    priorityLevel: "urgent",
+    priorityScore: 100,
+    priorityReasons: ["Statut pipeline Purchase", "Purchase sans prochaine action"],
     website: "https://example.com"
   },
   {
@@ -166,13 +181,21 @@ const fallbackProspects: SalesProspect[] = [
     company: "Domaine Bellevue",
     email: "marc@example.com",
     sector: "hotel",
-    pipelineStatus: "proposition",
+    pipelineStatus: "Purchase",
+    pipelineStatusRaw: "Purchase",
+    isPurchase: true,
     source: "Airtable demo",
     need: "Augmenter les reservations directes",
     potentialAmount: 18000,
     lastContactAt: DEMO_LAST_CONTACT_2D,
     nextAction: "Choisir le perimetre",
-    followupDate: DEMO_TOMORROW
+    nextActionDate: DEMO_TOMORROW,
+    followupDate: DEMO_TOMORROW,
+    notes: "Ok pour avancer, attend une proposition claire.",
+    enrichedNotes: "Ok pour avancer, attend une proposition claire.",
+    priorityLevel: "haute",
+    priorityScore: 70,
+    priorityReasons: ["Statut pipeline Purchase", "Notes enrichies avec signal positif"]
   }
 ];
 
@@ -201,7 +224,13 @@ const fallbackThreads: GmailThreadSummary[] = [
     subject: "Budget et prochaine etape",
     snippet: "Merci pour la proposition, nous devons regarder le budget et en parler en interne.",
     prospectName: "Chateau de la Cour Senlisse",
+    matchedProspectId: "demo-prospect-1",
     updatedAt: DEMO_NOW,
+    lastMessageAt: DEMO_NOW,
+    lastMessageFromMe: false,
+    commercialStatus: "a_repondre",
+    needsReply: true,
+    daysSinceLastMessage: 0,
     source: "demo"
   }
 ];
@@ -341,10 +370,10 @@ function contextFromProspect(prospect?: SalesProspect): MeetingContext {
     contactName: prospect.name,
     sector: prospect.sector,
     objective: prospect.need || defaultMeetingContext.objective,
-    knownContext: prospect.notes || prospect.need || "",
+    knownContext: prospect.enrichedNotes || prospect.notes || prospect.need || "",
     website: prospect.website || "",
     maturity:
-      prospect.pipelineStatus === "chaud" || prospect.pipelineStatus === "proposition"
+      prospect.isPurchase || ["chaud", "proposition", "purchase"].includes(prospect.pipelineStatus.toLowerCase())
         ? "chaud"
         : defaultMeetingContext.maturity
   };
@@ -354,52 +383,53 @@ function normalizeProspect(raw: Partial<SalesProspect>): SalesProspect {
   const sector = Object.keys(sectorLabels).includes(String(raw.sector))
     ? (raw.sector as Sector)
     : "autre";
-  const status = [
-    "nouveau",
-    "a_contacter",
-    "rdv_planifie",
-    "chaud",
-    "proposition",
-    "gagne",
-    "perdu"
-  ].includes(String(raw.pipelineStatus))
-    ? raw.pipelineStatus
-    : "nouveau";
-
-  return {
+  const prospect = {
     id: raw.id || crypto.randomUUID(),
+    airtableRecordId: raw.airtableRecordId,
     name: raw.name || raw.company || "Prospect",
     company: raw.company || raw.name || "Entreprise",
     email: raw.email || "",
     phone: raw.phone,
     sector,
-    pipelineStatus: status as SalesProspect["pipelineStatus"],
+    pipelineStatus: raw.pipelineStatusRaw || raw.pipelineStatus || "nouveau",
+    pipelineStatusRaw: raw.pipelineStatusRaw || raw.pipelineStatus || "nouveau",
+    isPurchase: raw.isPurchase,
     source: raw.source,
     need: raw.need,
     potentialAmount: raw.potentialAmount,
     lastContactAt: raw.lastContactAt,
     nextAction: raw.nextAction,
-    followupDate: raw.followupDate,
+    nextActionDate: raw.nextActionDate || raw.followupDate,
+    followupDate: raw.followupDate || raw.nextActionDate,
     notes: raw.notes,
+    enrichedNotes: raw.enrichedNotes || raw.notes,
+    priorityLevel: raw.priorityLevel,
+    priorityScore: raw.priorityScore,
+    priorityReasons: raw.priorityReasons,
     linkedInUrl: raw.linkedInUrl,
-    website: raw.website
-  };
+    website: raw.website,
+    airtableUrl: raw.airtableUrl
+  } satisfies SalesProspect;
+
+  return enrichProspectPriority(prospect);
 }
 
 function normalizeTaskSource(value: unknown): CommercialTask["source"] {
   return value === "google" || value === "demo" || value === "local" ? value : "local";
 }
 
-function preparationToText(preparation: Preparation) {
+function meetingPreparationToText(preparation: MeetingPreparation) {
   return [
-    `Angle: ${preparation.primaryAngle}`,
-    `Ouverture: ${preparation.openingLine}`,
-    `Questions:\n- ${preparation.priorityQuestions.join("\n- ")}`,
+    `Contexte: ${preparation.context}`,
+    `Airtable: ${preparation.knownFromAirtable}`,
+    `Emails recents: ${preparation.recentEmails}`,
+    `Objectif: ${preparation.objective}`,
+    `Questions:\n- ${preparation.questions.join("\n- ")}`,
+    `Points a valider:\n- ${preparation.pointsToValidate.join("\n- ")}`,
     `Objections probables:\n- ${preparation.likelyObjections.join("\n- ")}`,
-    `Leviers:\n- ${preparation.influenceLevers.join("\n- ")}`,
-    `Preuves:\n- ${preparation.proofToShow.join("\n- ")}`,
-    `Closing: ${preparation.targetClosing}`,
-    `Erreurs a eviter:\n- ${preparation.mistakesToAvoid.join("\n- ")}`
+    `Pitch: ${preparation.prodectaPitch}`,
+    `Next step obligatoire: ${preparation.mandatoryNextStep}`,
+    `Relance post-RDV:\n${preparation.postMeetingFollowup}`
   ].join("\n\n");
 }
 
@@ -441,43 +471,85 @@ export function ProdectaApp() {
     );
     return [...prospectAdvice, ...meetingAdvice].slice(0, 8);
   }, [gmailThreads, meetings, prospects]);
+  const dailyPriorityItems = useMemo(
+    () => buildDailyPriorityItems({ prospects, meetings, tasks, threads: gmailThreads }).slice(0, 12),
+    [gmailThreads, meetings, prospects, tasks]
+  );
+  const followupOpportunities = useMemo(
+    () => buildFollowupOpportunities({ prospects, meetings, tasks, threads: gmailThreads }),
+    [gmailThreads, meetings, prospects, tasks]
+  );
 
   async function syncCommercialData() {
     setSyncing(true);
     setSyncError(null);
+    const errors: string[] = [];
     try {
-      const [calendarJson, tasksJson, prospectsJson, gmailJson] = await Promise.all([
-        requestJson<{ data: { meetings: CommercialMeeting[] } }>("/api/integrations/calendar/import", {
-          method: "POST"
-        }),
-        requestJson<{ data: { tasks: CommercialTask[] } }>("/api/integrations/tasks/list", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({})
-        }),
-        requestJson<{ data: { prospects: Array<Partial<SalesProspect>> } }>(
+      const [prospectsResult, tasksResult] = await Promise.allSettled([
+        requestJson<{ data: { prospects: Array<Partial<SalesProspect>>; message: string } }>(
           "/api/integrations/airtable/prospects",
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ limit: 25 })
+            body: JSON.stringify({ limit: 200 })
           }
         ),
-        requestJson<{ data: { threads: GmailThreadSummary[] } }>("/api/integrations/gmail/search", {
+        requestJson<{ data: { tasks: CommercialTask[]; message: string } }>("/api/integrations/tasks/list", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query: context.prospectName, prospectName: context.prospectName })
+          body: JSON.stringify({})
         })
       ]);
-      setMeetings(calendarJson.data.meetings?.length ? calendarJson.data.meetings : fallbackMeetings);
-      setTasks(tasksJson.data.tasks?.length ? tasksJson.data.tasks : fallbackTasks);
-      setProspects(
-        prospectsJson.data.prospects?.length
-          ? prospectsJson.data.prospects.map(normalizeProspect)
-          : fallbackProspects
+
+      const nextProspects =
+        prospectsResult.status === "fulfilled" && prospectsResult.value.data.prospects?.length
+          ? prospectsResult.value.data.prospects.map(normalizeProspect)
+          : fallbackProspects;
+      if (prospectsResult.status === "rejected") errors.push(`Airtable: ${prospectsResult.reason}`);
+      setProspects(nextProspects);
+
+      const nextTasks =
+        tasksResult.status === "fulfilled" && tasksResult.value.data.tasks?.length
+          ? tasksResult.value.data.tasks
+          : fallbackTasks;
+      if (tasksResult.status === "rejected") errors.push(`Tasks: ${tasksResult.reason}`);
+      setTasks(nextTasks);
+
+      const [calendarResult, gmailResult] = await Promise.allSettled([
+        requestJson<{ data: { meetings: CommercialMeeting[]; message: string } }>(
+          "/api/integrations/calendar/import",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ prospects: nextProspects })
+          }
+        ),
+        requestJson<{ data: { threads: GmailThreadSummary[]; message: string } }>(
+          "/api/integrations/gmail/unanswered",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ prospects: nextProspects, maxProspects: 12 })
+          }
+        )
+      ]);
+
+      setMeetings(
+        calendarResult.status === "fulfilled" && calendarResult.value.data.meetings?.length
+          ? calendarResult.value.data.meetings
+          : fallbackMeetings
       );
-      setGmailThreads(gmailJson.data.threads?.length ? gmailJson.data.threads : fallbackThreads);
-      setNotice("Dashboard commercial synchronise.");
+      if (calendarResult.status === "rejected") errors.push(`Calendar: ${calendarResult.reason}`);
+
+      setGmailThreads(
+        gmailResult.status === "fulfilled" && gmailResult.value.data.threads?.length
+          ? gmailResult.value.data.threads
+          : fallbackThreads
+      );
+      if (gmailResult.status === "rejected") errors.push(`Gmail: ${gmailResult.reason}`);
+
+      setNotice(errors.length ? "Dashboard synchronise partiellement." : "Dashboard commercial synchronise.");
+      setSyncError(errors.length ? errors.join(" | ") : null);
     } catch (error) {
       setSyncError(error instanceof Error ? error.message : "Synchronisation impossible");
     } finally {
@@ -509,7 +581,7 @@ export function ProdectaApp() {
     <div className="min-h-screen bg-canvas text-graphite">
       <div className="grid min-h-screen grid-cols-[244px_1fr] max-xl:grid-cols-[88px_1fr] max-md:grid-cols-1">
         <Sidebar activeView={activeView} onChange={setActiveView} />
-        <main className="min-w-0">
+        <main className="min-w-0 overflow-x-hidden">
           <TopBar syncing={syncing} onSync={syncCommercialData} />
           <MobileNav activeView={activeView} onChange={setActiveView} />
 
@@ -534,6 +606,8 @@ export function ProdectaApp() {
               prospects={prospects}
               gmailThreads={gmailThreads}
               advice={allAdvice}
+              priorityItems={dailyPriorityItems}
+              followupOpportunities={followupOpportunities}
               onNavigate={setActiveView}
               onExport={() => downloadText("prodecta-sales-pilot-export.json", exportProdectaData())}
               onClear={resetLocalData}
@@ -543,6 +617,8 @@ export function ProdectaApp() {
             <MeetingsView
               meetings={meetings}
               prospects={prospects}
+              gmailThreads={gmailThreads}
+              onTasksChange={setTasks}
               context={context}
               onContextChange={setContext}
               onNavigate={setActiveView}
@@ -552,7 +628,12 @@ export function ProdectaApp() {
           {activeView === "followups" ? (
             <FollowupsView
               prospects={prospects}
+              gmailThreads={gmailThreads}
+              tasks={tasks}
+              meetings={meetings}
+              opportunities={followupOpportunities}
               context={context}
+              onTasksChange={setTasks}
               onNotice={setNotice}
               onFollowup={(strategy) => {
                 setFollowups((prev) => [
@@ -575,6 +656,7 @@ export function ProdectaApp() {
               gmailThreads={gmailThreads}
               onProspectsChange={setProspects}
               onTasksChange={setTasks}
+              onThreadsChange={setGmailThreads}
               onContextChange={setContext}
               onNavigate={setActiveView}
               onNotice={setNotice}
@@ -684,8 +766,8 @@ function MobileNav({
   onChange: (view: ViewId) => void;
 }) {
   return (
-    <nav className="sticky top-[154px] z-10 hidden border-b border-line bg-white/95 px-4 py-3 backdrop-blur max-md:block">
-      <div className="flex gap-2 overflow-x-auto pb-1 thin-scrollbar">
+    <nav className="sticky top-[154px] z-10 hidden overflow-hidden border-b border-line bg-white/95 px-4 py-3 backdrop-blur max-md:block">
+      <div className="flex max-w-full gap-2 overflow-x-auto pb-1 thin-scrollbar">
         {navItems.map((item) => {
           const Icon = item.icon;
           const active = activeView === item.id;
@@ -738,6 +820,8 @@ function DashboardView({
   prospects,
   gmailThreads,
   advice,
+  priorityItems,
+  followupOpportunities,
   onNavigate,
   onExport,
   onClear
@@ -747,94 +831,80 @@ function DashboardView({
   prospects: SalesProspect[];
   gmailThreads: GmailThreadSummary[];
   advice: SalesAdvice[];
+  priorityItems: DailyPriorityItem[];
+  followupOpportunities: FollowupOpportunity[];
   onNavigate: (view: ViewId) => void;
   onExport: () => void;
   onClear: () => void;
 }) {
+  const activeTasks = tasks.filter((task) => task.status !== "completed");
   const todayMeetings = meetings.filter((meeting) => isToday(meeting.start));
-  const dueTasks = tasks.filter((task) => task.status !== "completed" && (isToday(task.due) || isOverdue(task.due)));
-  const overdueFollowups = prospects.filter((prospect) => isOverdue(prospect.followupDate));
-  const hotWithoutNextStep = prospects.filter(
-    (prospect) => ["chaud", "proposition"].includes(prospect.pipelineStatus) && !prospect.nextAction
+  const weekMeetings = meetings.filter((meeting) => salesDateUtils.isThisWeek(meeting.start));
+  const todayTasks = activeTasks.filter((task) => isToday(task.due));
+  const overdueTasks = activeTasks.filter((task) => isOverdue(task.due));
+  const purchaseProspects = prospects.filter((prospect) => prospect.isPurchase);
+  const overdueProspects = prospects.filter((prospect) => isOverdue(prospect.nextActionDate || prospect.followupDate));
+  const todayFollowups = prospects.filter((prospect) => isToday(prospect.nextActionDate || prospect.followupDate));
+  const noNextStep = prospects.filter((prospect) => prospect.isPurchase && !prospect.nextAction?.trim());
+  const hotProspects = prospects
+    .filter((prospect) => (prospect.priorityScore ?? 0) >= 65 || prospect.isPurchase)
+    .sort((a, b) => (b.priorityScore ?? 0) - (a.priorityScore ?? 0));
+  const oldContacts = prospects.filter((prospect) =>
+    prospect.priorityReasons?.some((reason) => reason.toLowerCase().includes("dernier contact"))
   );
+  const unansweredMails = gmailThreads.filter((thread) => thread.needsReply || thread.commercialStatus === "en_attente_reponse");
   const topAdvice = summarizeDashboardAdvice(advice);
 
   return (
     <section className="space-y-5 p-5">
-      <div className="grid gap-4 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <MetricCard
-          title="RDV a preparer"
-          value={String(todayMeetings.length)}
+          title="A relancer"
+          value={String(todayFollowups.length)}
           detail="Aujourd'hui"
-          onClick={() => onNavigate("meetings")}
-        />
-        <MetricCard
-          title="Relances en retard"
-          value={String(overdueFollowups.length)}
-          detail="Depuis Airtable"
           onClick={() => onNavigate("followups")}
         />
         <MetricCard
-          title="Prospects sans next step"
-          value={String(hotWithoutNextStep.length)}
-          detail="Risque pipeline"
-          onClick={() => onNavigate("prospects")}
+          title="En retard"
+          value={String(overdueProspects.length + overdueTasks.length)}
+          detail="Prospects + taches"
+          onClick={() => onNavigate("followups")}
         />
         <MetricCard
-          title="Taches a traiter"
-          value={String(dueTasks.length)}
+          title="Mails sans reponse"
+          value={String(unansweredMails.length)}
+          detail="Gmail commercial"
+          onClick={() => onNavigate("gmail")}
+        />
+        <MetricCard
+          title="RDV a venir"
+          value={String(weekMeetings.length)}
+          detail={`${todayMeetings.length} aujourd'hui`}
+          onClick={() => onNavigate("meetings")}
+        />
+        <MetricCard
+          title="Taches du jour"
+          value={String(todayTasks.length)}
           detail="Google Tasks"
           onClick={() => onNavigate("tasks")}
         />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
-        <Panel title="Priorites commerciales" icon={Activity}>
-          <div className="grid gap-3 md:grid-cols-2">
-            <DashboardList title="RDV du jour" empty="Aucun RDV aujourd'hui.">
-              {todayMeetings.map((meeting) => (
-                <ActionRow
-                  key={meeting.id}
-                  title={meeting.title}
-                  detail={`${formatDate(meeting.start)} - ${meeting.attendees.join(", ") || "Invites a verifier"}`}
-                  cta="Preparer"
-                  onClick={() => onNavigate("meetings")}
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_380px]">
+        <Panel title="Priorite du jour" icon={Activity}>
+          <div className="space-y-3">
+            {priorityItems.length ? (
+              priorityItems.map((item, index) => (
+                <PriorityActionRow
+                  key={item.id}
+                  item={item}
+                  index={index}
+                  onClick={() => onNavigate(priorityTarget(item))}
                 />
-              ))}
-            </DashboardList>
-            <DashboardList title="Relances prioritaires" empty="Aucune relance urgente.">
-              {overdueFollowups.slice(0, 4).map((prospect) => (
-                <ActionRow
-                  key={prospect.id}
-                  title={prospect.company}
-                  detail={prospect.need || "Relance a cadrer"}
-                  cta="Relancer"
-                  onClick={() => onNavigate("followups")}
-                />
-              ))}
-            </DashboardList>
-            <DashboardList title="Prospects chauds" empty="Aucun prospect chaud sans action.">
-              {hotWithoutNextStep.slice(0, 4).map((prospect) => (
-                <ActionRow
-                  key={prospect.id}
-                  title={prospect.company}
-                  detail={`${sectorLabels[prospect.sector]} - ${prospect.potentialAmount ?? 0} EUR`}
-                  cta="Voir prospect"
-                  onClick={() => onNavigate("prospects")}
-                />
-              ))}
-            </DashboardList>
-            <DashboardList title="Derniers echanges Gmail" empty="Aucun echange charge.">
-              {gmailThreads.slice(0, 4).map((thread) => (
-                <ActionRow
-                  key={thread.id}
-                  title={thread.subject}
-                  detail={thread.snippet}
-                  cta="Creer brouillon"
-                  onClick={() => onNavigate("gmail")}
-                />
-              ))}
-            </DashboardList>
+              ))
+            ) : (
+              <EmptyText text="Synchronisez les outils pour calculer la file de priorites." />
+            )}
           </div>
         </Panel>
 
@@ -865,6 +935,71 @@ function DashboardView({
           </Panel>
         </div>
       </div>
+
+      <div className="grid gap-4 xl:grid-cols-3">
+        <DashboardList title="A relancer aujourd'hui" empty="Aucune relance datee aujourd'hui.">
+          {todayFollowups.slice(0, 5).map((prospect) => (
+            <ProspectActionRow key={prospect.id} prospect={prospect} cta="Relancer" onClick={() => onNavigate("followups")} />
+          ))}
+        </DashboardList>
+        <DashboardList title="Sans prochaine action" empty="Aucun Purchase sans next step.">
+          {noNextStep.slice(0, 5).map((prospect) => (
+            <ProspectActionRow key={prospect.id} prospect={prospect} cta="Creer tache" onClick={() => onNavigate("prospects")} />
+          ))}
+        </DashboardList>
+        <DashboardList title="Purchase a traiter" empty="Aucun Purchase importe.">
+          {purchaseProspects.slice(0, 5).map((prospect) => (
+            <ProspectActionRow key={prospect.id} prospect={prospect} cta="Voir prospect" onClick={() => onNavigate("prospects")} />
+          ))}
+        </DashboardList>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-3">
+        <DashboardList title="Prospects chauds" empty="Aucun prospect chaud detecte.">
+          {hotProspects.slice(0, 5).map((prospect) => (
+            <ProspectActionRow key={prospect.id} prospect={prospect} cta="Preparer relance" onClick={() => onNavigate("followups")} />
+          ))}
+        </DashboardList>
+        <DashboardList title="Derniers contacts anciens" empty="Aucun dernier contact ancien.">
+          {oldContacts.slice(0, 5).map((prospect) => (
+            <ProspectActionRow key={prospect.id} prospect={prospect} cta="Relancer" onClick={() => onNavigate("followups")} />
+          ))}
+        </DashboardList>
+        <DashboardList title="RDV a preparer" empty="Aucun RDV aujourd'hui ou cette semaine.">
+          {weekMeetings.slice(0, 5).map((meeting) => (
+            <ActionRow
+              key={meeting.id}
+              title={meeting.title}
+              detail={`${formatDate(meeting.start)} - ${meeting.prospectName || "prospect a lier"}`}
+              cta="Preparer"
+              onClick={() => onNavigate("meetings")}
+            />
+          ))}
+        </DashboardList>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <DashboardList title="Relances suggerees" empty="Aucune relance suggeree.">
+          {followupOpportunities.slice(0, 4).map((opportunity) => (
+            <FollowupOpportunityRow
+              key={opportunity.id}
+              opportunity={opportunity}
+              onClick={() => onNavigate("followups")}
+            />
+          ))}
+        </DashboardList>
+        <DashboardList title="Taches du jour" empty="Aucune tache Google Tasks aujourd'hui.">
+          {[...overdueTasks, ...todayTasks].slice(0, 5).map((task) => (
+            <ActionRow
+              key={task.id}
+              title={task.title}
+              detail={`${isOverdue(task.due) ? "En retard" : "Aujourd'hui"} - ${task.prospectName || task.notes || "action commerciale"}`}
+              cta="Traiter"
+              onClick={() => onNavigate("tasks")}
+            />
+          ))}
+        </DashboardList>
+      </div>
     </section>
   );
 }
@@ -872,6 +1007,8 @@ function DashboardView({
 function MeetingsView({
   meetings,
   prospects,
+  gmailThreads,
+  onTasksChange,
   context,
   onContextChange,
   onNavigate,
@@ -879,6 +1016,8 @@ function MeetingsView({
 }: {
   meetings: CommercialMeeting[];
   prospects: SalesProspect[];
+  gmailThreads: GmailThreadSummary[];
+  onTasksChange: (tasks: CommercialTask[] | ((previous: CommercialTask[]) => CommercialTask[])) => void;
   context: MeetingContext;
   onContextChange: (context: MeetingContext) => void;
   onNavigate: (view: ViewId) => void;
@@ -886,27 +1025,18 @@ function MeetingsView({
 }) {
   const [selectedId, setSelectedId] = useState(meetings[0]?.id ?? "");
   const selected = meetings.find((meeting) => meeting.id === selectedId) ?? meetings[0];
-  const linkedProspect = prospects.find((prospect) => prospect.company === selected?.prospectName);
+  const linkedProspect = prospects.find(
+    (prospect) => prospect.id === selected?.matchedProspectId || prospect.company === selected?.prospectName
+  );
   const prepContext = linkedProspect ? contextFromProspect(linkedProspect) : context;
-  const [preparation, setPreparation] = useState<Preparation>(() => buildPreparationFallback(prepContext));
-  const [loading, setLoading] = useState(false);
+  const relatedThreads = gmailThreads.filter(
+    (thread) =>
+      thread.matchedProspectId === linkedProspect?.id ||
+      thread.prospectName === linkedProspect?.company ||
+      thread.prospectName === selected?.prospectName
+  );
+  const preparation = buildMeetingPreparation({ meeting: selected, prospect: linkedProspect, threads: relatedThreads });
   const [error, setError] = useState<string | null>(null);
-
-  async function prepareMeeting() {
-    setLoading(true);
-    setError(null);
-    onContextChange(prepContext);
-    try {
-      const result = await postJson<Preparation>("/api/prepare-rdv", prepContext);
-      setPreparation(result.data);
-      onNotice(result.demoMode ? "Preparation locale generee." : "Preparation avancee generee.");
-    } catch (err) {
-      setPreparation(buildPreparationFallback(prepContext));
-      setError(err instanceof Error ? err.message : "Preparation impossible");
-    } finally {
-      setLoading(false);
-    }
-  }
 
   async function createFollowupEvent() {
     if (!selected) return;
@@ -929,6 +1059,53 @@ function MeetingsView({
       }
     );
     onNotice(json.data.message);
+  }
+
+  async function createMeetingTask(type: "preparation" | "relance") {
+    if (!selected) return;
+    setError(null);
+    const due = new Date(type === "preparation" ? selected.start : selected.end || selected.start);
+    if (type === "relance") due.setDate(due.getDate() + 1);
+    const suggestion = buildTaskSuggestion({
+      meeting: selected,
+      prospect: linkedProspect,
+      type,
+      due: due.toISOString()
+    });
+    try {
+      const json = await requestJson<{ data: { task?: Partial<CommercialTask>; message: string } }>(
+        "/api/integrations/tasks/create",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: suggestion.title,
+            notes: suggestion.notes,
+            due: suggestion.due,
+            prospectName: linkedProspect?.company || selected.prospectName,
+            matchedProspectId: linkedProspect?.id,
+            sourceItemId: selected.id
+          })
+        }
+      );
+      onTasksChange((previous) => [
+        {
+          id: json.data.task?.id || crypto.randomUUID(),
+          title: suggestion.title,
+          due: suggestion.due,
+          status: "needsAction",
+          notes: suggestion.notes,
+          prospectName: linkedProspect?.company || selected.prospectName,
+          matchedProspectId: linkedProspect?.id,
+          sourceItemId: selected.id,
+          source: normalizeTaskSource(json.data.task?.source)
+        },
+        ...previous
+      ]);
+      onNotice(json.data.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Creation tache impossible");
+    }
   }
 
   return (
@@ -964,32 +1141,63 @@ function MeetingsView({
                 <MetricCard title="Invites" value={String(selected.attendees.length)} detail="contacts" />
                 <MetricCard title="Secteur" value={sectorLabels[prepContext.sector]} detail={prepContext.maturity} />
               </div>
-              <TextBlock title="Description" text={selected.description || "Aucun detail fourni par Calendar."} />
-              <div className="grid gap-4 lg:grid-cols-2">
-                <InfoList title="Questions prioritaires" items={preparation.priorityQuestions} />
-                <InfoList title="Objections probables" items={preparation.likelyObjections} />
-                <InfoList title="Leviers a utiliser" items={preparation.influenceLevers} />
-                <InfoList title="Erreurs a eviter" items={preparation.mistakesToAvoid} />
+              <div className="grid gap-3 lg:grid-cols-3">
+                <TextBlock title="Contexte RDV" text={preparation.context} />
+                <TextBlock title="Airtable" text={preparation.knownFromAirtable} />
+                <TextBlock title="Derniers mails" text={preparation.recentEmails} />
+              </div>
+              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <InfoList title="Questions a poser" items={preparation.questions} />
+                  <InfoList title="Points a valider" items={preparation.pointsToValidate} />
+                  <InfoList title="Objections probables" items={preparation.likelyObjections} />
+                  <InfoList title="Checklist pendant RDV" items={preparation.checklistDuring} />
+                </div>
+                <div className="space-y-3">
+                  <SmallMessage title="Script d'introduction" text="Avant de vous presenter Prodecta, j'aimerais comprendre ce qui doit vraiment changer pour que ce projet ait un impact commercial." />
+                  <SmallMessage title="Pitch Prodecta adapte" text={preparation.prodectaPitch} />
+                  <SmallMessage title="Conclusion RDV" text={preparation.mandatoryNextStep} />
+                </div>
+              </div>
+              <div className="grid gap-4 lg:grid-cols-3">
+                <InfoList title="Avant RDV" items={preparation.checklistBefore} />
+                <InfoList title="Apres RDV" items={preparation.checklistAfter} />
+                <SmallMessage title="Relance post-RDV" text={preparation.postMeetingFollowup} />
               </div>
               <div className="rounded-md border border-teal/20 bg-teal/5 p-4 font-semibold text-teal">
-                {preparation.openingLine}
+                Objectif : {preparation.objective}
               </div>
               {error ? <ErrorBox message={error} /> : null}
               <div className="flex flex-wrap gap-2">
-                <button className="btn-primary" onClick={prepareMeeting} disabled={loading}>
-                  {loading ? <RotateCcw className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                  Preparer
+                <button
+                  className="btn-primary"
+                  onClick={() => {
+                    onContextChange(prepContext);
+                    onNotice("Preparation RDV locale prete.");
+                  }}
+                >
+                  <Target className="h-4 w-4" />
+                  Marquer pret
+                </button>
+                <button className="btn-secondary" onClick={() => createMeetingTask("preparation")}>
+                  <Plus className="h-4 w-4" />
+                  Tache preparation
+                </button>
+                <button className="btn-secondary" onClick={() => createMeetingTask("relance")}>
+                  <Plus className="h-4 w-4" />
+                  Tache post-RDV
                 </button>
                 <button className="btn-secondary" onClick={createFollowupEvent}>
-                  <Plus className="h-4 w-4" />
-                  Creer RDV relance
+                  <Calendar className="h-4 w-4" />
+                  RDV relance
                 </button>
-                <button className="btn-secondary" onClick={() => copyText(preparationToText(preparation))}>
+                <button className="btn-secondary" onClick={() => copyText(meetingPreparationToText(preparation))}>
                   <ClipboardCopy className="h-4 w-4" />
-                  Copier preparation
+                  Copier fiche
                 </button>
-                <button className="btn-secondary" onClick={() => onNavigate("prospects")}>
-                  Voir prospect
+                <button className="btn-secondary" onClick={() => onNavigate("gmail")}>
+                  <Mail className="h-4 w-4" />
+                  Voir mails lies
                 </button>
               </div>
             </div>
@@ -1004,21 +1212,33 @@ function MeetingsView({
 
 function FollowupsView({
   prospects,
+  gmailThreads,
+  tasks,
+  meetings,
+  opportunities,
   context,
+  onTasksChange,
   onNotice,
   onFollowup
 }: {
   prospects: SalesProspect[];
+  gmailThreads: GmailThreadSummary[];
+  tasks: CommercialTask[];
+  meetings: CommercialMeeting[];
+  opportunities: FollowupOpportunity[];
   context: MeetingContext;
+  onTasksChange: (tasks: CommercialTask[] | ((previous: CommercialTask[]) => CommercialTask[])) => void;
   onNotice: (notice: string) => void;
   onFollowup: (strategy: FollowupStrategy) => void;
 }) {
   const [selectedProspectId, setSelectedProspectId] = useState(prospects[0]?.id ?? "");
+  const [sourceFilter, setSourceFilter] = useState("all");
+  const [priorityFilter, setPriorityFilter] = useState("all");
   const selectedProspect = prospects.find((prospect) => prospect.id === selectedProspectId) ?? prospects[0];
   const [form, setForm] = useState({
     prospectName: selectedProspect?.company || context.prospectName,
     conversation: "",
-    notes: selectedProspect?.notes || "",
+    notes: selectedProspect?.enrichedNotes || selectedProspect?.notes || "",
     lastReply: "",
     daysSinceLastExchange: 3,
     goal: "obtenir une prochaine etape claire",
@@ -1029,6 +1249,12 @@ function FollowupsView({
   const [strategy, setStrategy] = useState<FollowupStrategy>(() => buildFollowupFallback(JSON.stringify(form)));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const filteredOpportunities = opportunities.filter((opportunity) => {
+    const sourceOk = sourceFilter === "all" || opportunity.source === sourceFilter;
+    const priorityOk = priorityFilter === "all" || opportunity.priority === priorityFilter;
+    return sourceOk && priorityOk;
+  });
+  const relanceTasks = tasks.filter((task) => /relance|rappel|verifier/i.test(task.title));
 
   function pickProspect(id: string) {
     const prospect = prospects.find((item) => item.id === id);
@@ -1037,10 +1263,43 @@ function FollowupsView({
       setForm((prev) => ({
         ...prev,
         prospectName: prospect.company,
-        notes: prospect.notes || prospect.need || "",
+        notes: prospect.enrichedNotes || prospect.notes || prospect.need || "",
         priceProposed: prospect.potentialAmount ? `${prospect.potentialAmount} EUR` : prev.priceProposed
       }));
     }
+  }
+
+  function pickOpportunity(opportunity: FollowupOpportunity) {
+    const prospect = prospects.find((item) => item.id === opportunity.prospectId);
+    if (prospect) setSelectedProspectId(prospect.id);
+    const nextStrategy = {
+      diagnosis: opportunity.reason,
+      probableRealObjection: opportunity.context,
+      recommendedStrategy: opportunity.recommendedAngle,
+      pricePosture: "Preserver la valeur, proposer deux options si le budget revient dans l'echange.",
+      channel: "email",
+      timing: "Aujourd'hui",
+      email: {
+        subject: `Suite Prodecta - ${opportunity.company}`,
+        body: opportunity.message
+      },
+      sms: "Bonjour, je reviens vers vous au sujet de Prodecta. Est-ce que l'on se cale un court point cette semaine ?",
+      shortMessage: opportunity.message,
+      softVersion: opportunity.message,
+      directVersion: opportunity.message,
+      closingVersion: opportunity.message,
+      nextAction: opportunity.nextAction || "Obtenir une prochaine etape datee"
+    } satisfies FollowupStrategy;
+    setForm((prev) => ({
+      ...prev,
+      prospectName: opportunity.company,
+      conversation: opportunity.context,
+      notes: prospect?.enrichedNotes || prospect?.notes || opportunity.context,
+      goal: opportunity.nextAction || "obtenir une prochaine etape claire",
+      priceProposed: prospect?.potentialAmount ? `${prospect.potentialAmount} EUR` : prev.priceProposed
+    }));
+    setStrategy(nextStrategy);
+    onFollowup(nextStrategy);
   }
 
   async function generate() {
@@ -1078,9 +1337,151 @@ function FollowupsView({
     }
   }
 
+  async function createOpportunityDraft(opportunity: FollowupOpportunity) {
+    const prospect = prospects.find((item) => item.id === opportunity.prospectId);
+    try {
+      const json = await requestJson<{ data: { message: string } }>("/api/integrations/gmail/create-draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: prospect?.email || selectedProspect?.email || "prospect@example.com",
+          subject: `Suite Prodecta - ${opportunity.company}`,
+          body: opportunity.message,
+          prospectName: opportunity.company
+        })
+      });
+      onNotice(json.data.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Creation brouillon impossible");
+    }
+  }
+
+  async function createOpportunityTask(opportunity: FollowupOpportunity) {
+    const prospect = prospects.find((item) => item.id === opportunity.prospectId);
+    const suggestion = buildTaskSuggestion({
+      prospect: prospect || { id: opportunity.prospectId, company: opportunity.company },
+      type: "relance",
+      due: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+    });
+    try {
+      const json = await requestJson<{ data: { task?: Partial<CommercialTask>; message: string } }>(
+        "/api/integrations/tasks/create",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: suggestion.title,
+            notes: `${suggestion.notes}\n\nSource relance: ${sourceLabel(opportunity.source)}\nRaison: ${opportunity.reason}`,
+            due: suggestion.due,
+            prospectName: opportunity.company,
+            matchedProspectId: prospect?.id,
+            sourceItemId: opportunity.id
+          })
+        }
+      );
+      onTasksChange((previous) => [
+        {
+          id: json.data.task?.id || crypto.randomUUID(),
+          title: suggestion.title,
+          due: suggestion.due,
+          status: "needsAction",
+          notes: suggestion.notes,
+          prospectName: opportunity.company,
+          matchedProspectId: prospect?.id,
+          sourceItemId: opportunity.id,
+          source: normalizeTaskSource(json.data.task?.source)
+        },
+        ...previous
+      ]);
+      onNotice(json.data.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Creation tache impossible");
+    }
+  }
+
   return (
-    <section className="grid gap-4 p-5 xl:grid-cols-[380px_minmax(0,1fr)]">
-      <Panel title="Centre de relance" icon={Send}>
+    <section className="space-y-4 p-5">
+      <div className="grid gap-4 md:grid-cols-4">
+        <MetricCard title="Relances" value={String(opportunities.length)} detail="toutes sources" />
+        <MetricCard title="Gmail" value={String(gmailThreads.filter((thread) => thread.needsReply).length)} detail="a traiter" />
+        <MetricCard title="Taches relance" value={String(relanceTasks.length)} detail="Google Tasks" />
+        <MetricCard title="Post-RDV" value={String(meetings.filter((meeting) => isOverdue(meeting.end)).length)} detail="a suivre" />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_390px]">
+        <Panel title="Relances a faire" icon={Send}>
+          <div className="mb-4 grid gap-2 md:grid-cols-2">
+            <SelectInput
+              label="Source"
+              value={sourceFilter}
+              onChange={setSourceFilter}
+              options={[
+                { value: "all", label: "Toutes les sources" },
+                { value: "airtable", label: "Airtable" },
+                { value: "gmail", label: "Gmail" },
+                { value: "calendar", label: "Calendar" },
+                { value: "tasks", label: "Tasks" }
+              ]}
+            />
+            <SelectInput
+              label="Priorite"
+              value={priorityFilter}
+              onChange={setPriorityFilter}
+              options={[
+                { value: "all", label: "Toutes les priorites" },
+                { value: "urgent", label: "Urgent" },
+                { value: "haute", label: "Haute" },
+                { value: "moyenne", label: "Moyenne" },
+                { value: "basse", label: "Basse" }
+              ]}
+            />
+          </div>
+          <div className="space-y-3">
+            {filteredOpportunities.length ? (
+              filteredOpportunities.map((opportunity) => (
+                <div key={opportunity.id} className="rounded-md border border-line bg-white p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <PriorityBadge value={opportunity.priority} />
+                        <span className="rounded-full border border-line px-2 py-1 text-xs font-bold uppercase text-muted">
+                          {sourceLabel(opportunity.source)}
+                        </span>
+                      </div>
+                      <h3 className="mt-2 text-lg font-black text-ink">{opportunity.company}</h3>
+                      <p className="mt-1 text-sm font-semibold text-teal">{opportunity.reason}</p>
+                    </div>
+                    <button className="btn-secondary" onClick={() => pickOpportunity(opportunity)}>
+                      Ouvrir contexte
+                    </button>
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-muted">{opportunity.context}</p>
+                  <div className="mt-3 rounded-md bg-teal/5 p-3 text-sm font-semibold text-teal">
+                    {opportunity.recommendedAngle}
+                  </div>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                    <button className="btn-secondary" onClick={() => copyText(opportunity.message)}>
+                      <ClipboardCopy className="h-4 w-4" />
+                      Copier
+                    </button>
+                    <button className="btn-primary" onClick={() => createOpportunityDraft(opportunity)}>
+                      <FileText className="h-4 w-4" />
+                      Brouillon Gmail
+                    </button>
+                    <button className="btn-secondary" onClick={() => createOpportunityTask(opportunity)}>
+                      <Plus className="h-4 w-4" />
+                      Creer tache
+                    </button>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <EmptyText text="Aucune relance dans ce filtre." />
+            )}
+          </div>
+        </Panel>
+
+        <Panel title="Composer une relance" icon={Mail}>
         <div className="space-y-3">
           <SelectInput
             label="Prospect"
@@ -1105,6 +1506,7 @@ function FollowupsView({
           </div>
         </div>
       </Panel>
+      </div>
 
       <Panel title="Messages prets" icon={Mail}>
         <div className="grid gap-4 lg:grid-cols-2">
@@ -1143,6 +1545,7 @@ function ProspectsView({
   gmailThreads,
   onProspectsChange,
   onTasksChange,
+  onThreadsChange,
   onContextChange,
   onNavigate,
   onNotice
@@ -1152,46 +1555,71 @@ function ProspectsView({
   gmailThreads: GmailThreadSummary[];
   onProspectsChange: (prospects: SalesProspect[] | ((previous: SalesProspect[]) => SalesProspect[])) => void;
   onTasksChange: (tasks: CommercialTask[] | ((previous: CommercialTask[]) => CommercialTask[])) => void;
+  onThreadsChange: (threads: GmailThreadSummary[] | ((previous: GmailThreadSummary[]) => GmailThreadSummary[])) => void;
   onContextChange: (context: MeetingContext) => void;
   onNavigate: (view: ViewId) => void;
   onNotice: (notice: string) => void;
 }) {
   const [selectedId, setSelectedId] = useState(prospects[0]?.id ?? "");
   const [query, setQuery] = useState("");
+  const [prospectError, setProspectError] = useState<string | null>(null);
   const selected = prospects.find((prospect) => prospect.id === selectedId) ?? prospects[0];
   const filtered = prospects.filter((prospect) =>
-    `${prospect.name} ${prospect.company} ${prospect.email} ${prospect.need}`
+    `${prospect.name} ${prospect.company} ${prospect.email} ${prospect.need} ${prospect.enrichedNotes}`
       .toLowerCase()
       .includes(query.toLowerCase())
   );
+  const relatedThreads = gmailThreads.filter(
+    (thread) => thread.matchedProspectId === selected?.id || thread.prospectName === selected?.company
+  );
+  const relatedTasks = tasks.filter(
+    (task) => task.matchedProspectId === selected?.id || task.prospectName === selected?.company
+  );
   const advice = buildSalesAdvice({
     prospect: selected,
-    lastEmail: gmailThreads.find((thread) => thread.prospectName === selected?.company)
+    lastEmail: relatedThreads[0]
   });
 
   async function createProspectTask(label = "Relancer") {
     if (!selected) return;
-    const title = `${label} ${selected.company}`;
+    setProspectError(null);
+    const taskType = label.toLowerCase().includes("preparer")
+      ? "preparation"
+      : label.toLowerCase().includes("devis")
+        ? "devis"
+        : label.toLowerCase().includes("appeler")
+          ? "appel"
+          : "relance";
+    const suggestion = buildTaskSuggestion({
+      prospect: selected,
+      type: taskType,
+      due: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+    });
     const json = await requestJson<{ data: { task?: Partial<CommercialTask>; message: string } }>(
       "/api/integrations/tasks/create",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title,
-          notes: selected.need || selected.notes || "",
-          due: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-          prospectName: selected.company
+          title: suggestion.title,
+          notes: suggestion.notes,
+          due: suggestion.due,
+          prospectName: selected.company,
+          matchedProspectId: selected.id,
+          sourceItemId: selected.airtableRecordId || selected.id
         })
       }
     );
     onTasksChange([
       {
         id: json.data.task?.id || crypto.randomUUID(),
-        title,
-        due: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        title: suggestion.title,
+        due: suggestion.due,
         status: "needsAction",
+        notes: suggestion.notes,
         prospectName: selected.company,
+        matchedProspectId: selected.id,
+        sourceItemId: selected.airtableRecordId || selected.id,
         source: normalizeTaskSource(json.data.task?.source)
       },
       ...tasks
@@ -1203,9 +1631,63 @@ function ProspectsView({
     if (!selected) return;
     onProspectsChange((previous) =>
       previous.map((prospect) =>
-        prospect.id === selected.id ? { ...prospect, nextAction: value } : prospect
+        prospect.id === selected.id ? enrichProspectPriority({ ...prospect, nextAction: value }) : prospect
       )
     );
+  }
+
+  function updateNextActionDate(value: string) {
+    if (!selected) return;
+    onProspectsChange((previous) =>
+      previous.map((prospect) =>
+        prospect.id === selected.id ? enrichProspectPriority({ ...prospect, nextActionDate: value, followupDate: value }) : prospect
+      )
+    );
+  }
+
+  async function saveNextActionToAirtable() {
+    if (!selected) return;
+    setProspectError(null);
+    try {
+      const json = await requestJson<{ data: { message: string } }>(
+        "/api/integrations/airtable/prospects/update",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            recordId: selected.airtableRecordId || selected.id,
+            nextAction: selected.nextAction,
+            nextActionDate: selected.nextActionDate
+          })
+        }
+      );
+      onNotice(json.data.message);
+    } catch (err) {
+      setProspectError(err instanceof Error ? err.message : "Mise a jour Airtable impossible");
+    }
+  }
+
+  async function searchProspectMails() {
+    if (!selected) return;
+    setProspectError(null);
+    try {
+      const queryText = [selected.email, selected.company, selected.name].filter(Boolean).join(" OR ");
+      const json = await requestJson<{ data: { threads: GmailThreadSummary[]; message: string } }>(
+        "/api/integrations/gmail/search",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: queryText, prospectName: selected.company, prospects: [selected] })
+        }
+      );
+      onThreadsChange((previous) => {
+        const existingIds = new Set(json.data.threads.map((thread) => thread.id));
+        return [...json.data.threads, ...previous.filter((thread) => !existingIds.has(thread.id))];
+      });
+      onNotice(json.data.message);
+    } catch (err) {
+      setProspectError(err instanceof Error ? err.message : "Recherche Gmail impossible");
+    }
   }
 
   return (
@@ -1245,21 +1727,41 @@ function ProspectsView({
         {selected ? (
           <>
             <Panel title={selected.company} icon={Folder}>
-              <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+              <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
                 <div className="space-y-4">
                   <div className="grid gap-3 md:grid-cols-4">
-                    <MetricCard title="Statut" value={selected.pipelineStatus} detail="pipeline" />
+                    <MetricCard title="Statut" value={selected.pipelineStatusRaw || selected.pipelineStatus} detail="pipeline" />
                     <MetricCard title="Secteur" value={sectorLabels[selected.sector]} detail="angle" />
                     <MetricCard title="Potentiel" value={`${selected.potentialAmount ?? 0} EUR`} detail="montant" />
-                    <MetricCard title="Relance" value={formatDate(selected.followupDate)} detail="date" />
+                    <MetricCard title="Priorite" value={String(selected.priorityScore ?? 0)} detail={selected.priorityLevel || "a qualifier"} />
                   </div>
-                  <TextBlock title="Besoin" text={selected.need || "A qualifier"} />
-                  <TextBlock title="Notes" text={selected.notes || "Aucune note"} />
-                  <TextInput label="Prochaine action" value={selected.nextAction || ""} onChange={updateNextAction} />
+                  <div className="grid gap-3 lg:grid-cols-2">
+                    <TextBlock title="Besoin" text={selected.need || "A qualifier"} />
+                    <TextBlock title="Notes enrichies" text={selected.enrichedNotes || selected.notes || "Aucune note Airtable"} />
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <TextInput label="Prochaine action" value={selected.nextAction || ""} onChange={updateNextAction} />
+                    <TextInput label="Date prochaine action" value={selected.nextActionDate || ""} onChange={updateNextActionDate} />
+                  </div>
+                  {prospectError ? <ErrorBox message={prospectError} /> : null}
+                  <div className="rounded-md border border-line bg-slate-50 p-3 text-sm">
+                    <div className="font-bold text-ink">Raisons de priorite</div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {(selected.priorityReasons?.length ? selected.priorityReasons : ["Informations a qualifier"]).map((reason) => (
+                        <span key={reason} className="rounded-full bg-white px-3 py-1 text-xs font-bold text-muted">
+                          {reason}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     <button className="btn-primary" onClick={() => createProspectTask("Relancer")}>
                       <Plus className="h-4 w-4" />
                       Creer tache
+                    </button>
+                    <button className="btn-secondary" onClick={saveNextActionToAirtable}>
+                      <Check className="h-4 w-4" />
+                      Sauver Airtable
                     </button>
                     <button
                       className="btn-secondary"
@@ -1269,12 +1771,40 @@ function ProspectsView({
                       }}
                     >
                       <Target className="h-4 w-4" />
-                      Preparer
+                      Preparer RDV
+                    </button>
+                    <button className="btn-secondary" onClick={searchProspectMails}>
+                      <Search className="h-4 w-4" />
+                      Chercher mails
                     </button>
                     <button className="btn-secondary" onClick={() => onNavigate("gmail")}>
                       <Mail className="h-4 w-4" />
                       Creer brouillon
                     </button>
+                  </div>
+                  <div className="grid gap-3 lg:grid-cols-2">
+                    <DashboardList title="Mails lies" empty="Aucun mail lie charge.">
+                      {relatedThreads.slice(0, 3).map((thread) => (
+                        <ActionRow
+                          key={thread.id}
+                          title={thread.subject}
+                          detail={`${thread.commercialStatus || "recent"} - ${thread.snippet}`}
+                          cta="Gmail"
+                          onClick={() => onNavigate("gmail")}
+                        />
+                      ))}
+                    </DashboardList>
+                    <DashboardList title="Taches liees" empty="Aucune tache liee.">
+                      {relatedTasks.slice(0, 3).map((task) => (
+                        <ActionRow
+                          key={task.id}
+                          title={task.title}
+                          detail={`${formatDate(task.due)} - ${task.status}`}
+                          cta="Tasks"
+                          onClick={() => onNavigate("tasks")}
+                        />
+                      ))}
+                    </DashboardList>
                   </div>
                 </div>
                 <div className="space-y-3">
@@ -1314,6 +1844,9 @@ function GmailView({
   const [body, setBody] = useState(buildFollowupTemplate(prospects[0]));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const incomingToHandle = threads.filter((thread) => thread.needsReply || thread.commercialStatus === "a_repondre");
+  const sentWithoutReply = threads.filter((thread) => thread.commercialStatus === "en_attente_reponse");
+  const recentThreads = threads.filter((thread) => !thread.needsReply && thread.commercialStatus !== "en_attente_reponse");
 
   async function searchThreads() {
     setLoading(true);
@@ -1324,13 +1857,34 @@ function GmailView({
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query, prospectName: query })
+          body: JSON.stringify({ query, prospectName: query, prospects })
         }
       );
       onThreadsChange(json.data.threads);
       onNotice(json.data.message);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Recherche Gmail impossible");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function analyzeUnanswered() {
+    setLoading(true);
+    setError(null);
+    try {
+      const json = await requestJson<{ data: { threads: GmailThreadSummary[]; message: string } }>(
+        "/api/integrations/gmail/unanswered",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prospects, maxProspects: 12 })
+        }
+      );
+      onThreadsChange(json.data.threads);
+      onNotice(json.data.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Analyse Gmail impossible");
     } finally {
       setLoading(false);
     }
@@ -1356,6 +1910,19 @@ function GmailView({
     }
   }
 
+  function prepareThreadDraft(thread: GmailThreadSummary) {
+    const prospect = prospects.find((item) => item.id === thread.matchedProspectId || item.company === thread.prospectName);
+    const message = buildFollowupTemplate(
+      prospect || { company: thread.prospectName || query },
+      thread.commercialStatus === "en_attente_reponse" ? "absence" : "next-step"
+    );
+    setQuery(thread.prospectName || prospect?.company || query);
+    setTo(prospect?.email || to);
+    setSubject(`Suite Prodecta - ${prospect?.company || thread.prospectName || thread.subject}`);
+    setBody(message);
+    onNotice("Brouillon local prepare depuis le thread.");
+  }
+
   return (
     <section className="grid gap-4 p-5 xl:grid-cols-[390px_minmax(0,1fr)]">
       <Panel title="Gmail commercial" icon={Mail}>
@@ -1370,6 +1937,12 @@ function GmailView({
               <Search className="h-4 w-4" />
               Rechercher
             </button>
+            <button className="btn-secondary" onClick={analyzeUnanswered} disabled={loading}>
+              <Activity className="h-4 w-4" />
+              Sans reponse
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
             <button className="btn-primary" onClick={createDraft} disabled={loading}>
               <FileText className="h-4 w-4" />
               Creer brouillon
@@ -1382,19 +1955,28 @@ function GmailView({
         </div>
       </Panel>
 
-      <Panel title="Derniers echanges" icon={Mail}>
-        <div className="grid gap-3 lg:grid-cols-2">
-          {threads.length ? (
-            threads.map((thread) => (
-              <div key={thread.id} className="rounded-md border border-line bg-white p-4">
-                <div className="font-bold">{thread.subject}</div>
-                <p className="mt-2 text-sm leading-6 text-muted">{thread.snippet}</p>
-                <div className="mt-3 text-xs font-semibold text-teal">{thread.source}</div>
-              </div>
-            ))
-          ) : (
-            <EmptyText text="Aucun echange Gmail charge." />
-          )}
+      <Panel title="Echanges commerciaux" icon={Mail}>
+        <div className="grid gap-4 xl:grid-cols-2">
+          <GmailThreadGroup title="Mails recus a traiter" empty="Aucun mail entrant sans reponse.">
+            {incomingToHandle.map((thread) => (
+              <GmailThreadCard key={thread.id} thread={thread} onUse={() => prepareThreadDraft(thread)} />
+            ))}
+          </GmailThreadGroup>
+          <GmailThreadGroup title="Mails envoyes sans reponse" empty="Aucun mail envoye sans reponse detecte.">
+            {sentWithoutReply.map((thread) => (
+              <GmailThreadCard key={thread.id} thread={thread} onUse={() => prepareThreadDraft(thread)} />
+            ))}
+          </GmailThreadGroup>
+          <GmailThreadGroup title="Relances suggerees" empty="Aucune relance suggeree.">
+            {[...incomingToHandle, ...sentWithoutReply].slice(0, 4).map((thread) => (
+              <GmailThreadCard key={`suggested-${thread.id}`} thread={thread} onUse={() => prepareThreadDraft(thread)} />
+            ))}
+          </GmailThreadGroup>
+          <GmailThreadGroup title="Threads commerciaux recents" empty="Aucun thread recent.">
+            {recentThreads.slice(0, 4).map((thread) => (
+              <GmailThreadCard key={thread.id} thread={thread} onUse={() => prepareThreadDraft(thread)} />
+            ))}
+          </GmailThreadGroup>
         </div>
       </Panel>
     </section>
@@ -1417,9 +1999,34 @@ function TasksView({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const selectedProspect = prospects.find((prospect) => prospect.id === selectedProspectId);
+  const activeTasks = tasks.filter((task) => task.status !== "completed");
+  const overdueTasks = activeTasks.filter((task) => isOverdue(task.due));
+  const todayTasks = activeTasks.filter((task) => isToday(task.due));
+  const upcomingTasks = activeTasks.filter((task) => !isOverdue(task.due) && !isToday(task.due));
 
-  async function createTask(templateTitle?: string) {
-    const finalTitle = templateTitle || title;
+  async function createTask(templateTitle?: string, type?: TaskSuggestion["source"] | "devis" | "brouillon" | "appel" | "elements" | "verification" | "airtable") {
+    const label = templateTitle || title;
+    const taskType =
+      type && type !== "calendar" && type !== "gmail" && type !== "airtable"
+        ? type
+        : label.toLowerCase().includes("preparer")
+          ? "preparation"
+          : label.toLowerCase().includes("devis")
+            ? "devis"
+            : label.toLowerCase().includes("brouillon")
+              ? "brouillon"
+              : label.toLowerCase().includes("appeler")
+                ? "appel"
+                : label.toLowerCase().includes("elements")
+                  ? "elements"
+                  : label.toLowerCase().includes("verifier")
+                    ? "verification"
+                    : "relance";
+    const suggestion = buildTaskSuggestion({
+      prospect: selectedProspect,
+      type: taskType,
+      due: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+    });
     setLoading(true);
     setError(null);
     try {
@@ -1429,21 +2036,25 @@ function TasksView({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            title: finalTitle,
-            notes: selectedProspect?.need || selectedProspect?.notes || "",
-            due: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-            prospectName: selectedProspect?.company
+            title: suggestion.title,
+            notes: suggestion.notes,
+            due: suggestion.due,
+            prospectName: selectedProspect?.company,
+            matchedProspectId: selectedProspect?.id,
+            sourceItemId: selectedProspect?.airtableRecordId || selectedProspect?.id
           })
         }
       );
       onTasksChange((previous) => [
         {
           id: json.data.task?.id || crypto.randomUUID(),
-          title: finalTitle,
-          due: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+          title: suggestion.title,
+          due: suggestion.due,
           status: "needsAction",
-          notes: selectedProspect?.need,
+          notes: suggestion.notes,
           prospectName: selectedProspect?.company,
+          matchedProspectId: selectedProspect?.id,
+          sourceItemId: selectedProspect?.airtableRecordId || selectedProspect?.id,
           source: normalizeTaskSource(json.data.task?.source)
         },
         ...previous
@@ -1484,8 +2095,17 @@ function TasksView({
             {loading ? <RotateCcw className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
             Creer tache
           </button>
-          <div className="grid gap-2">
-            {["Relancer prospect", "Preparer RDV", "Envoyer devis", "Appeler prospect"].map((item) => (
+          <div className="grid gap-2 sm:grid-cols-2">
+            {[
+              "Relancer prospect",
+              "Preparer RDV",
+              "Envoyer devis",
+              "Creer brouillon Gmail",
+              "Appeler prospect",
+              "Envoyer elements",
+              "Verifier reponse",
+              "Mettre a jour Airtable"
+            ].map((item) => (
               <button key={item} className="btn-secondary" onClick={() => createTask(item)}>
                 {item}
               </button>
@@ -1495,20 +2115,10 @@ function TasksView({
       </Panel>
 
       <Panel title="Taches commerciales" icon={Check}>
-        <div className="space-y-2">
-          {tasks.map((task) => (
-            <div key={task.id} className="flex items-start justify-between gap-3 rounded-md border border-line bg-white p-3">
-              <div>
-                <div className={clsx("font-bold", task.status === "completed" && "line-through text-muted")}>
-                  {task.title}
-                </div>
-                <div className="mt-1 text-sm text-muted">{formatDate(task.due)} - {task.prospectName || task.source}</div>
-              </div>
-              <button className="btn-secondary" disabled={task.status === "completed"} onClick={() => completeTask(task)}>
-                Terminer
-              </button>
-            </div>
-          ))}
+        <div className="grid gap-4 xl:grid-cols-3">
+          <TaskBucket title="En retard" tasks={overdueTasks} onComplete={completeTask} />
+          <TaskBucket title="Aujourd'hui" tasks={todayTasks} onComplete={completeTask} />
+          <TaskBucket title="A venir" tasks={upcomingTasks} onComplete={completeTask} />
         </div>
       </Panel>
     </section>
@@ -1907,6 +2517,14 @@ function adviceTarget(cta: SalesAdvice["cta"]): ViewId {
   return "prospects";
 }
 
+function priorityTarget(item: DailyPriorityItem): ViewId {
+  if (item.source === "calendar") return "meetings";
+  if (item.source === "gmail") return "gmail";
+  if (item.source === "tasks") return "tasks";
+  if (item.cta === "Creer tache") return "tasks";
+  return "followups";
+}
+
 function DashboardList({
   title,
   empty,
@@ -1918,11 +2536,115 @@ function DashboardList({
 }) {
   const hasItems = Array.isArray(children) ? children.some(Boolean) : Boolean(children);
   return (
-    <div className="rounded-md border border-line bg-slate-50 p-3">
+    <div className="min-w-0 rounded-md border border-line bg-slate-50 p-3">
       <h3 className="font-bold">{title}</h3>
       <div className="mt-3 space-y-2">{hasItems ? children : <EmptyText text={empty} />}</div>
     </div>
   );
+}
+
+function PriorityActionRow({
+  item,
+  index,
+  onClick
+}: {
+  item: DailyPriorityItem;
+  index: number;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className="min-w-0 w-full rounded-md border border-line bg-white p-3 text-left shadow-sm transition hover:border-teal hover:bg-teal/5"
+      onClick={onClick}
+    >
+      <div className="flex items-start gap-3">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-slate-100 text-sm font-black text-ink">
+          {index + 1}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <PriorityBadge value={item.priority} />
+            <span className="rounded-full border border-line px-2 py-1 text-xs font-bold uppercase text-muted">
+              {sourceLabel(item.source)}
+            </span>
+          </div>
+          <div className="mt-2 font-black text-ink">{item.title}</div>
+          <p className="mt-1 line-clamp-2 text-sm leading-6 text-muted">{item.detail}</p>
+          <p className="mt-2 text-sm font-semibold text-ink">{item.action}</p>
+          <p className="mt-1 text-xs font-semibold text-teal">{item.reason}</p>
+        </div>
+        <span className="shrink-0 rounded-full bg-teal/10 px-3 py-1 text-xs font-bold text-teal">{item.cta}</span>
+      </div>
+    </button>
+  );
+}
+
+function ProspectActionRow({
+  prospect,
+  cta,
+  onClick
+}: {
+  prospect: SalesProspect;
+  cta: string;
+  onClick: () => void;
+}) {
+  const detail = [
+    prospect.nextAction || "Next step a definir",
+    prospect.nextActionDate ? formatDate(prospect.nextActionDate) : "",
+    prospect.priorityReasons?.[0] || ""
+  ]
+    .filter(Boolean)
+    .join(" - ");
+  return (
+    <ActionRow
+      title={prospect.company}
+      detail={detail || prospect.enrichedNotes || prospect.notes || "Contexte a qualifier"}
+      cta={cta}
+      onClick={onClick}
+    />
+  );
+}
+
+function FollowupOpportunityRow({
+  opportunity,
+  onClick
+}: {
+  opportunity: FollowupOpportunity;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className="w-full rounded-md border border-line bg-white p-3 text-left transition hover:border-teal hover:bg-teal/5"
+      onClick={onClick}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <PriorityBadge value={opportunity.priority} />
+            <span className="rounded-full border border-line px-2 py-1 text-xs font-bold uppercase text-muted">
+              {sourceLabel(opportunity.source)}
+            </span>
+          </div>
+          <div className="mt-2 font-bold">{opportunity.company}</div>
+          <p className="mt-1 line-clamp-2 text-sm text-muted">{opportunity.reason}</p>
+          <p className="mt-2 text-sm font-semibold text-teal">{opportunity.recommendedAngle}</p>
+        </div>
+        <span className="shrink-0 rounded-full bg-teal/10 px-2 py-1 text-xs font-bold text-teal">
+          {opportunity.cta}
+        </span>
+      </div>
+    </button>
+  );
+}
+
+function sourceLabel(source: DailyPriorityItem["source"] | FollowupOpportunity["source"] | TaskSuggestion["source"]) {
+  const labels = {
+    airtable: "Airtable",
+    gmail: "Gmail",
+    calendar: "Calendar",
+    tasks: "Tasks"
+  } as const;
+  return labels[source];
 }
 
 function ActionRow({
@@ -1937,7 +2659,7 @@ function ActionRow({
   onClick: () => void;
 }) {
   return (
-    <button className="w-full rounded-md border border-line bg-white p-3 text-left hover:border-teal hover:bg-teal/5" onClick={onClick}>
+    <button className="min-w-0 w-full rounded-md border border-line bg-white p-3 text-left hover:border-teal hover:bg-teal/5" onClick={onClick}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="truncate font-bold">{title}</div>
@@ -1946,6 +2668,87 @@ function ActionRow({
         <span className="shrink-0 rounded-full bg-teal/10 px-2 py-1 text-xs font-bold text-teal">{cta}</span>
       </div>
     </button>
+  );
+}
+
+function GmailThreadGroup({
+  title,
+  empty,
+  children
+}: {
+  title: string;
+  empty: string;
+  children: React.ReactNode;
+}) {
+  const hasItems = Array.isArray(children) ? children.some(Boolean) : Boolean(children);
+  return (
+    <div className="min-w-0 rounded-md border border-line bg-slate-50 p-3">
+      <h3 className="font-bold">{title}</h3>
+      <div className="mt-3 space-y-3">{hasItems ? children : <EmptyText text={empty} />}</div>
+    </div>
+  );
+}
+
+function GmailThreadCard({ thread, onUse }: { thread: GmailThreadSummary; onUse: () => void }) {
+  return (
+    <div className="rounded-md border border-line bg-white p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="font-bold">{thread.subject}</div>
+          <p className="mt-1 line-clamp-2 text-sm leading-6 text-muted">{thread.snippet}</p>
+        </div>
+        <PriorityBadge value={thread.needsReply ? "urgent" : thread.commercialStatus === "en_attente_reponse" ? "haute" : "moyenne"} />
+      </div>
+      <div className="mt-2 flex flex-wrap gap-2 text-xs font-semibold text-muted">
+        <span>{thread.lastMessageFromMe ? "Dernier mail envoye" : "Dernier mail recu"}</span>
+        <span>{thread.daysSinceLastMessage ?? 0} j</span>
+        <span>{thread.prospectName || "prospect a lier"}</span>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <button className="btn-secondary" onClick={() => copyText(thread.snippet)}>
+          <ClipboardCopy className="h-4 w-4" />
+          Copier
+        </button>
+        <button className="btn-primary" onClick={onUse}>
+          <FileText className="h-4 w-4" />
+          Brouillon
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function TaskBucket({
+  title,
+  tasks,
+  onComplete
+}: {
+  title: string;
+  tasks: CommercialTask[];
+  onComplete: (task: CommercialTask) => void;
+}) {
+  return (
+    <div className="min-w-0 rounded-md border border-line bg-slate-50 p-3">
+      <h3 className="font-bold">{title}</h3>
+      <div className="mt-3 space-y-2">
+        {tasks.length ? (
+          tasks.map((task) => (
+            <div key={task.id} className="rounded-md border border-line bg-white p-3">
+              <div className={clsx("font-bold", task.status === "completed" && "line-through text-muted")}>
+                {task.title}
+              </div>
+              <div className="mt-1 text-sm text-muted">{formatDate(task.due)} - {task.prospectName || task.source}</div>
+              {task.notes ? <p className="mt-2 line-clamp-2 text-xs leading-5 text-muted">{task.notes}</p> : null}
+              <button className="btn-secondary mt-3 w-full" disabled={task.status === "completed"} onClick={() => onComplete(task)}>
+                Terminer
+              </button>
+            </div>
+          ))
+        ) : (
+          <EmptyText text="Aucune tache." />
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -2103,11 +2906,14 @@ function MetricCard({
 }
 
 function PriorityBadge({ value }: { value: string }) {
-  const tone = ["chaud", "proposition"].includes(value)
+  const normalized = value.toLowerCase();
+  const tone = ["urgent", "purchase", "chaud", "proposition"].includes(normalized)
     ? "bg-coral/10 text-coral"
-    : value === "gagne"
-      ? "bg-teal/10 text-teal"
-      : "bg-slate-100 text-muted";
+    : ["haute", "aujourd'hui", "today"].includes(normalized)
+      ? "bg-gold/10 text-gold"
+      : ["gagne", "moyenne"].includes(normalized)
+        ? "bg-teal/10 text-teal"
+        : "bg-slate-100 text-muted";
   return <span className={clsx("rounded-full px-2 py-1 text-xs font-bold", tone)}>{value}</span>;
 }
 

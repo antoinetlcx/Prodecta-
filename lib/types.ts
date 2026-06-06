@@ -151,21 +151,30 @@ export type CalendarMeetingAction = {
 
 export type SalesProspect = {
   id: string;
+  airtableRecordId?: string;
   name: string;
   company: string;
   email: string;
   phone?: string;
   sector: Sector;
-  pipelineStatus: "nouveau" | "a_contacter" | "rdv_planifie" | "chaud" | "proposition" | "gagne" | "perdu";
+  pipelineStatus: string;
+  pipelineStatusRaw?: string;
+  isPurchase?: boolean;
   source?: string;
   need?: string;
   potentialAmount?: number;
   lastContactAt?: string;
   nextAction?: string;
+  nextActionDate?: string;
   followupDate?: string;
   notes?: string;
+  enrichedNotes?: string;
+  priorityLevel?: "urgent" | "haute" | "moyenne" | "basse";
+  priorityScore?: number;
+  priorityReasons?: string[];
   linkedInUrl?: string;
   website?: string;
+  airtableUrl?: string;
 };
 
 export type CommercialMeeting = {
@@ -176,6 +185,8 @@ export type CommercialMeeting = {
   description?: string;
   attendees: string[];
   prospectName?: string;
+  matchedProspectId?: string;
+  preparationStatus?: "non_prepare" | "a_faire" | "pret";
   source: "google" | "local" | "demo";
 };
 
@@ -187,16 +198,92 @@ export type CommercialTask = {
   taskListId?: string;
   notes?: string;
   prospectName?: string;
+  matchedProspectId?: string;
+  sourceItemId?: string;
   source: "google" | "local" | "demo";
 };
 
 export type GmailThreadSummary = {
   id: string;
+  messageId?: string;
   subject: string;
   snippet: string;
   prospectName?: string;
+  matchedProspectId?: string;
   updatedAt?: string;
+  lastMessageAt?: string;
+  lastMessageFromMe?: boolean;
+  lastSender?: string;
+  commercialStatus?: "a_repondre" | "en_attente_reponse" | "recent" | "archive";
+  needsReply?: boolean;
+  daysSinceLastMessage?: number;
   source: "gmail" | "demo";
+};
+
+export type DailyPriorityItem = {
+  id: string;
+  source: "airtable" | "gmail" | "calendar" | "tasks";
+  priority: "urgent" | "haute" | "moyenne" | "basse";
+  title: string;
+  detail: string;
+  reason: string;
+  action: string;
+  cta: "Preparer" | "Relancer" | "Creer tache" | "Creer brouillon" | "Voir prospect";
+  prospectId?: string;
+  meetingId?: string;
+  taskId?: string;
+  threadId?: string;
+};
+
+export type FollowupOpportunity = {
+  id: string;
+  source: "airtable" | "gmail" | "tasks" | "calendar";
+  priority: "urgent" | "haute" | "moyenne" | "basse";
+  company: string;
+  reason: string;
+  context: string;
+  lastInteraction?: string;
+  nextAction?: string;
+  recommendedAngle: string;
+  message: string;
+  cta: string;
+  prospectId?: string;
+  threadId?: string;
+  taskId?: string;
+  meetingId?: string;
+};
+
+export type MeetingPreparation = {
+  context: string;
+  knownFromAirtable: string;
+  recentEmails: string;
+  objective: string;
+  questions: string[];
+  pointsToValidate: string[];
+  likelyObjections: string[];
+  prodectaPitch: string;
+  mandatoryNextStep: string;
+  postMeetingFollowup: string;
+  checklistBefore: string[];
+  checklistDuring: string[];
+  checklistAfter: string[];
+};
+
+export type TaskSuggestion = {
+  id: string;
+  title: string;
+  notes: string;
+  due?: string;
+  source: "airtable" | "gmail" | "calendar";
+  prospectId?: string;
+  threadId?: string;
+  meetingId?: string;
+};
+
+export type SourceSyncResult = {
+  source: "airtable" | "gmail" | "calendar" | "tasks";
+  ok: boolean;
+  message: string;
 };
 
 export type StoredReport = {

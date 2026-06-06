@@ -8,7 +8,9 @@ const payloadSchema = z.object({
   title: z.string().min(1),
   notes: z.string().min(0).optional(),
   due: z.string().min(1).optional(),
-  prospectName: z.string().min(0).optional()
+  prospectName: z.string().min(0).optional(),
+  matchedProspectId: z.string().min(0).optional(),
+  sourceItemId: z.string().min(0).optional()
 });
 
 export async function POST(request: Request) {
@@ -59,7 +61,13 @@ export async function POST(request: Request) {
       state: "connected",
       created: true,
       message: "Tache Google Tasks creee.",
-      task
+      task: {
+        ...task,
+        prospectName: parsed.data.prospectName,
+        matchedProspectId: parsed.data.matchedProspectId,
+        sourceItemId: parsed.data.sourceItemId,
+        source: "google"
+      }
     }
   });
 }
