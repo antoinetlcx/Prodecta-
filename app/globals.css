@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  background: #f7f9fc;
+  color: #18212f;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  background: #f7f9fc;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid #087f7a;
+  outline-offset: 2px;
+}
+
+::selection {
+  background: #b9ebe7;
+}
+
+.thin-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #b8c5d6 transparent;
+}
+
+.thin-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.thin-scrollbar::-webkit-scrollbar-thumb {
+  background: #b8c5d6;
+  border-radius: 999px;
+}
+
+@layer components {
+  .input {
+    @apply w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-graphite shadow-sm transition placeholder:text-slate-400 hover:border-slate-300 focus:border-teal focus:outline-none;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-md bg-teal px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-teal/90 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink transition hover:border-teal hover:bg-teal/5 hover:text-teal disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-md border border-coral/30 bg-coral/5 px-3 py-2 text-sm font-semibold text-coral transition hover:bg-coral/10;
+  }
+
+  .icon-button {
+    @apply grid h-9 w-9 shrink-0 place-items-center rounded-md border border-line bg-white text-muted transition hover:border-teal hover:bg-teal/5 hover:text-teal;
+  }
+}
