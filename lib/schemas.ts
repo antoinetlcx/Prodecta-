@@ -144,7 +144,7 @@ export const followupStrategySchema = z.object({
   timing: z.string(),
   email: z.object({ subject: z.string(), body: z.string() }),
   sms: z.string(),
-  linkedIn: z.string(),
+  shortMessage: z.string(),
   softVersion: z.string(),
   directVersion: z.string(),
   closingVersion: z.string(),
@@ -177,46 +177,6 @@ export const objectionStrategySchema = z.object({
   nextAction: z.string()
 });
 
-export const liveTranscriptSegmentSchema = z.object({
-  id: z.string().min(1),
-  text: z.string(),
-  speaker: z.enum(["commercial", "prospect", "system", "unknown"]),
-  source: z.enum(["micro", "tab", "mixed", "manual", "unknown"]),
-  final: z.boolean(),
-  startedAt: z.string(),
-  endedAt: z.string().optional()
-});
-
-export const liveSignalDetectionSchema = z.object({
-  id: z.string().min(1),
-  label: z.string(),
-  category: z.enum(["achat", "risque", "objection", "biais", "ecoute", "closing"]),
-  confidence: z.number().min(0).max(1),
-  evidence: z.string(),
-  recommendation: z.string()
-});
-
-export const liveCoachingEventSchema = z.object({
-  id: z.string().min(1),
-  createdAt: z.string(),
-  severity: z.enum(["info", "opportunity", "warning", "urgent"]),
-  title: z.string(),
-  insight: z.string(),
-  suggestedPhrase: z.string(),
-  questionToAsk: z.string(),
-  mistakeToAvoid: z.string(),
-  psychologicalLever: z.string(),
-  sourceSegmentIds: z.array(z.string())
-});
-
-export const liveCoachResponseSchema = z.object({
-  summary: z.string(),
-  detectedSignals: z.array(liveSignalDetectionSchema),
-  events: z.array(liveCoachingEventSchema),
-  sellerTalkRatio: z.number().int().min(0).max(100),
-  nextBestAction: z.string()
-});
-
 export type Sector = z.infer<typeof sectorSchema>;
 export type MeetingType = z.infer<typeof meetingTypeSchema>;
 export type DealMaturity = z.infer<typeof dealMaturitySchema>;
@@ -226,7 +186,3 @@ export type CommercialReport = z.infer<typeof commercialReportSchema>;
 export type FollowupStrategy = z.infer<typeof followupStrategySchema>;
 export type NegotiationStrategy = z.infer<typeof negotiationStrategySchema>;
 export type ObjectionStrategy = z.infer<typeof objectionStrategySchema>;
-export type LiveTranscriptSegment = z.infer<typeof liveTranscriptSegmentSchema>;
-export type LiveSignalDetection = z.infer<typeof liveSignalDetectionSchema>;
-export type LiveCoachingEvent = z.infer<typeof liveCoachingEventSchema>;
-export type LiveCoachResponse = z.infer<typeof liveCoachResponseSchema>;

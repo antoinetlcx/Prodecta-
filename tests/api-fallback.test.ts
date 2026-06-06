@@ -30,52 +30,6 @@ describe("api fallback mode", () => {
     expect(json.data.primaryAngle).toContain("valeur physique");
   });
 
-  it("live-coach returns structured demo coaching without OpenAI key", async () => {
-    const { POST } = await import("@/app/api/live-coach/route");
-    const { defaultMeetingContext } = await import("@/lib/sales-knowledge");
-
-    const response = await POST(
-      new Request("http://localhost/api/live-coach", {
-        method: "POST",
-        body: JSON.stringify({
-          context: defaultMeetingContext,
-          transcript: "Le prix est interessant mais je dois voir avec mon associe.",
-          segments: [],
-          manualSignals: ["prix"],
-          currentStepId: "prix"
-        })
-      })
-    );
-    const json = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(json.demoMode).toBe(true);
-    expect(json.data.events.length).toBeGreaterThan(0);
-    expect(json.data.detectedSignals.some((signal: { id: string }) => signal.id === "prix")).toBe(true);
-  });
-
-  it("realtime session refuses to start without an OpenAI key", async () => {
-    const { GET, POST } = await import("@/app/api/realtime/session/route");
-
-    const readiness = await GET();
-    const readinessJson = await readiness.json();
-    expect(readiness.status).toBe(200);
-    expect(readinessJson.configured).toBe(false);
-    expect(readinessJson.error).toContain("OPENAI_API_KEY");
-
-    const response = await POST(
-      new Request("http://localhost/api/realtime/session", {
-        method: "POST",
-        headers: { "Content-Type": "application/sdp" },
-        body: "v=0"
-      })
-    );
-    const json = await response.json();
-
-    expect(response.status).toBe(401);
-    expect(json.error).toContain("OPENAI_API_KEY");
-  });
-
   it("objection and negotiation fallbacks use full price context", async () => {
     const { POST: objectionPost } = await import("@/app/api/objection/route");
     const { POST: negotiationPost } = await import("@/app/api/negociation/route");
@@ -110,7 +64,7 @@ describe("api fallback mode", () => {
     expect(negotiationJson.data.recommendedStrategy).toBe("reduire_perimetre");
   });
 
-  it("integration status never exposes local tokens", async () => {
+  it("integration status exposes connected dashboard services without tokens", async () => {
     const previousStorePath = process.env.PRODECTA_INTEGRATION_STORE_PATH;
     const previousAirtable = process.env.AIRTABLE_TOKEN;
     const tempDir = await mkdtemp(join(tmpdir(), "prodecta-integrations-"));
@@ -125,6 +79,8 @@ describe("api fallback mode", () => {
 
       expect(response.status).toBe(200);
       expect(raw).toContain("Airtable Prodecta");
+      expect(raw).toContain("Google Tasks");
+      expect(raw).toContain("OpenAI");
       expect(raw).not.toContain("secret-airtable-token");
     } finally {
       if (previousStorePath === undefined) delete process.env.PRODECTA_INTEGRATION_STORE_PATH;
@@ -135,7 +91,7 @@ describe("api fallback mode", () => {
     }
   });
 
-  it("integration routes stay usable without external credentials", async () => {
+  it("commercial integration routes stay usable without external credentials", async () => {
     const previousStorePath = process.env.PRODECTA_INTEGRATION_STORE_PATH;
     const previousAirtableToken = process.env.AIRTABLE_TOKEN;
     const previousAirtableKey = process.env.AIRTABLE_API_KEY;
@@ -151,11 +107,23 @@ describe("api fallback mode", () => {
     try {
       const { POST: discoverAirtable } = await import("@/app/api/integrations/airtable/discover/route");
       const { POST: importCalendar } = await import("@/app/api/integrations/calendar/import/route");
+      const { POST: listTasks } = await import("@/app/api/integrations/tasks/list/route");
+      const { POST: createTask } = await import("@/app/api/integrations/tasks/create/route");
       const { POST: createDraft } = await import("@/app/api/integrations/gmail/create-draft/route");
-      const { POST: linkedinDraft } = await import("@/app/api/integrations/linkedin/draft/route");
+      const { POST: prospects } = await import("@/app/api/integrations/airtable/prospects/route");
 
       const airtable = await discoverAirtable();
       const calendar = await importCalendar();
+      const tasks = await listTasks(new Request("http://localhost/api/integrations/tasks/list", {
+        method: "POST",
+        body: JSON.stringify({})
+      }));
+      const task = await createTask(
+        new Request("http://localhost/api/integrations/tasks/create", {
+          method: "POST",
+          body: JSON.stringify({ title: "Relancer Chateau test" })
+        })
+      );
       const gmail = await createDraft(
         new Request("http://localhost/api/integrations/gmail/create-draft", {
           method: "POST",
@@ -166,30 +134,30 @@ describe("api fallback mode", () => {
           })
         })
       );
-      const linkedin = await linkedinDraft(
-        new Request("http://localhost/api/integrations/linkedin/draft", {
+      const airtableProspects = await prospects(
+        new Request("http://localhost/api/integrations/airtable/prospects", {
           method: "POST",
-          body: JSON.stringify({
-            prospectName: "Chateau test",
-            contactName: "Sophie",
-            profileUrl: ""
-          })
+          body: JSON.stringify({ limit: 5 })
         })
       );
 
       const airtableJson = await airtable.json();
       const calendarJson = await calendar.json();
+      const tasksJson = await tasks.json();
+      const taskJson = await task.json();
       const gmailJson = await gmail.json();
-      const linkedinJson = await linkedin.json();
+      const prospectsJson = await airtableProspects.json();
 
       expect(airtable.status).toBe(200);
       expect(airtableJson.data.state).toBe("needs_reauth");
       expect(calendarJson.demoMode).toBe(true);
       expect(calendarJson.data.meetings.length).toBeGreaterThan(0);
+      expect(tasksJson.demoMode).toBe(true);
+      expect(tasksJson.data.tasks.length).toBeGreaterThan(0);
+      expect(taskJson.data.task.title).toContain("Relancer");
       expect(gmailJson.data.sent).toBe(false);
       expect(gmailJson.data.message).toContain("aucun email envoye");
-      expect(linkedinJson.data.sent).toBe(false);
-      expect(linkedinJson.data.draft.text).toContain("Chateau test");
+      expect(prospectsJson.data.prospects.length).toBeGreaterThan(0);
     } finally {
       if (previousStorePath === undefined) delete process.env.PRODECTA_INTEGRATION_STORE_PATH;
       else process.env.PRODECTA_INTEGRATION_STORE_PATH = previousStorePath;

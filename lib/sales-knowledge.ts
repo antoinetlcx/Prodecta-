@@ -1,6 +1,4 @@
 import type {
-  CopilotStep,
-  LiveSignal,
   MeetingContext,
   ObjectionPlaybookItem,
   ProdectaScript,
@@ -13,7 +11,6 @@ import type {
 import type {
   CommercialReport,
   FollowupStrategy,
-  LiveCoachResponse,
   NegotiationStrategy,
   ObjectionStrategy,
   Preparation,
@@ -68,166 +65,6 @@ export const sectorQuestions: Record<Sector, string[]> = {
     "Quelle action commerciale voulez-vous augmenter ?"
   ]
 };
-
-export const copilotSteps: CopilotStep[] = [
-  {
-    id: "cadrage",
-    title: "Cadrage",
-    timing: "0-5 min",
-    objective: "Installer le cadre et eviter la demo prematuree.",
-    phrase:
-      "L'idee aujourd'hui n'est pas de faire une presentation generique. Je veux d'abord comprendre votre fonctionnement, puis vous montrer uniquement ce qui peut avoir du sens.",
-    question: "Ca vous va si on fonctionne comme ca ?",
-    signal: "Le prospect accepte le cadre ou cherche deja une demo.",
-    avoid: "Commencer par presenter Prodecta sans diagnostic.",
-    influence: "Autorite calme + contrat initial Sandler."
-  },
-  {
-    id: "situation",
-    title: "Situation",
-    timing: "5-12 min",
-    objective: "Comprendre comment le prospect vend aujourd'hui.",
-    phrase: "Avant de parler solution, j'aimerais comprendre votre parcours client actuel.",
-    question: "Vos prospects vous decouvrent comment aujourd'hui, et qu'est-ce qu'ils font ensuite ?",
-    signal: "Il decrit un parcours concret, pas seulement un avis sur son site.",
-    avoid: "Diagnostiquer trop vite depuis ton intuition.",
-    influence: "SPIN Situation + ecoute active."
-  },
-  {
-    id: "probleme",
-    title: "Probleme",
-    timing: "12-20 min",
-    objective: "Faire nommer le blocage sans le forcer.",
-    phrase: "Souvent, le sujet n'est pas que le site est mauvais, mais que la valeur physique ne se ressent pas assez en ligne.",
-    question: "Qu'est-ce que vos clients ont le plus de mal a comprendre a distance ?",
-    signal: "Il reconnait un manque de projection, de clarte ou de confiance.",
-    avoid: "Vendre l'immersion comme une fonctionnalite avant la douleur.",
-    influence: "Challenger + insight commercial."
-  },
-  {
-    id: "impact",
-    title: "Impact",
-    timing: "20-28 min",
-    objective: "Relier le probleme a une consequence business.",
-    phrase: "La vraie question, c'est ce que ce manque de projection vous coute aujourd'hui.",
-    question: "Quand un client ne se projette pas, il appelle, il compare, il repousse ou il abandonne ?",
-    signal: "Il parle de pertes, temps, conversion, prix ou reservations.",
-    avoid: "Accepter une douleur vague sans quantifier l'enjeu.",
-    influence: "Aversion a la perte + implication SPIN."
-  },
-  {
-    id: "projection",
-    title: "Projection",
-    timing: "28-34 min",
-    objective: "Faire imaginer le resultat attendu.",
-    phrase: "Le but n'est pas de faire joli. Le but est d'aider vos visiteurs a comprendre, se projeter et agir plus naturellement.",
-    question: "Si votre site faisait mieux une seule chose demain, ce serait informer, rassurer, faire rever, qualifier ou vendre ?",
-    signal: "Il choisit une priorite et se projette dans l'usage.",
-    avoid: "Multiplier les benefices sans priorite.",
-    influence: "Jobs To Be Done + engagement."
-  },
-  {
-    id: "demo",
-    title: "Demo ciblee",
-    timing: "34-42 min",
-    objective: "Montrer uniquement ce qui confirme la valeur.",
-    phrase: "Je vous montre cette partie parce qu'elle repond exactement au point que vous venez de decrire.",
-    question: "Est-ce que vous voyez comment ce type de parcours pourrait clarifier votre offre ?",
-    signal: "Il commente un usage concret ou demande un exemple proche.",
-    avoid: "Faire une demo longue et generique.",
-    influence: "Preuve sociale + pertinence contextuelle."
-  },
-  {
-    id: "prix",
-    title: "Prix",
-    timing: "42-48 min",
-    objective: "Ancrer le prix sur la valeur et le perimetre.",
-    phrase: "On peut ajuster le perimetre, mais il faut preserver ce qui cree vraiment la valeur commerciale.",
-    question: "Vous voulez qu'on raisonne plutot en version essentielle ou en version complete ?",
-    signal: "Il demande le budget, le ROI, le delai ou les options.",
-    avoid: "Baisser le prix sans contrepartie.",
-    influence: "Ancrage + contraste entre options."
-  },
-  {
-    id: "objections",
-    title: "Objections",
-    timing: "48-55 min",
-    objective: "Transformer l'objection floue en sujet clair.",
-    phrase: "Bien sur. Pour que votre reflexion soit simple, qu'est-ce qui doit etre clarifie en priorite : budget, rendu, timing ou decision interne ?",
-    question: "Qu'est-ce qui vous ferait dire que ce projet merite d'avancer maintenant ?",
-    signal: "Il precise le vrai frein au lieu de rester vague.",
-    avoid: "Repondre trop vite ou se justifier.",
-    influence: "Clarification + controle doux du process."
-  },
-  {
-    id: "closing",
-    title: "Closing",
-    timing: "55-60 min",
-    objective: "Obtenir une prochaine etape datee.",
-    phrase: "Le plus simple est que je vous propose deux scenarios, puis on valide ensemble lequel merite d'avancer.",
-    question: "On se bloque quel moment pour en reparler apres lecture ?",
-    signal: "Une date, un decideur et une action concrete sont confirmes.",
-    avoid: "Finir par un simple 'je vous envoie ca'.",
-    influence: "Simplification de decision + engagement."
-  }
-];
-
-export const liveSignals: LiveSignal[] = [
-  {
-    id: "prix",
-    label: "Prix evoque",
-    risk: "positive",
-    meaning: "Signal d'interet. Le prospect teste la valeur ou cherche le cadre budgetaire.",
-    phrase: "Je vous donne une fourchette, mais le plus juste est de la relier au perimetre et a l'impact recherche.",
-    nextQuestion: "Vous voulez surtout comprendre le cout, le ROI ou les options possibles ?",
-    avoid: "Annoncer un prix sec sans rappeler la valeur."
-  },
-  {
-    id: "reflechir",
-    label: "Je vais reflechir",
-    risk: "warning",
-    meaning: "Objection floue. Risque de deal qui s'endort.",
-    phrase: "Bien sur. Pour que votre reflexion soit simple, qu'est-ce qui doit etre clarifie : budget, rendu, timing ou decision interne ?",
-    nextQuestion: "Qu'est-ce qui vous manquerait pour prendre une decision sereine ?",
-    avoid: "Dire seulement 'pas de souci, je vous laisse revenir'."
-  },
-  {
-    id: "associe",
-    label: "Doit voir associe",
-    risk: "warning",
-    meaning: "Decision non verrouillee. Il faut comprendre le processus d'achat.",
-    phrase: "Tres bien. Pour que je vous aide a lui presenter ca simplement, qu'est-ce qui comptera le plus pour lui ?",
-    nextQuestion: "Est-ce que c'est plutot un sujet budget, priorite, technique ou ROI pour votre associe ?",
-    avoid: "Envoyer une proposition sans savoir qui decide."
-  },
-  {
-    id: "concurrence",
-    label: "Parle concurrence",
-    risk: "neutral",
-    meaning: "Il compare. Il faut deplacer la discussion vers la difference de valeur.",
-    phrase: "C'est utile de comparer. La vraie difference se joue surtout sur la projection commerciale et le suivi des actions.",
-    nextQuestion: "Vous comparez surtout le rendu, le prix, l'accompagnement ou l'impact commercial ?",
-    avoid: "Critiquer les concurrents."
-  },
-  {
-    id: "silence",
-    label: "Client silencieux",
-    risk: "warning",
-    meaning: "Tu dois ralentir, reformuler et rendre la parole.",
-    phrase: "Je m'arrete deux secondes. Qu'est-ce que vous en pensez franchement ?",
-    nextQuestion: "Est-ce que ca vous semble pertinent, trop tot, ou pas prioritaire ?",
-    avoid: "Combler le silence en parlant plus."
-  },
-  {
-    id: "closing",
-    label: "Besoin de closing",
-    risk: "positive",
-    meaning: "Le prospect a assez d'informations. Il faut simplifier la prochaine etape.",
-    phrase: "On peut faire simple : je vous envoie deux scenarios, et on se garde 20 minutes pour choisir le bon perimetre.",
-    nextQuestion: "Vous preferez qu'on se reparle mardi ou mercredi ?",
-    avoid: "Ajouter encore de l'information au lieu de conclure."
-  }
-];
 
 export const psychologyCards: PsychologyCard[] = [
   {
@@ -341,7 +178,7 @@ export const trainingCategories: TrainingCategoryMeta[] = [
   {
     id: "relance",
     label: "Relance",
-    description: "J+2, J+5, J+10, email, SMS, LinkedIn et relances apres silence."
+    description: "J+2, J+5, J+10, email, SMS, message court et relances apres silence."
   },
   {
     id: "scripts",
@@ -1065,7 +902,7 @@ export function buildFollowupFallback(context: string): FollowupStrategy {
     },
     sms:
       "Bonjour, je vous ai envoye deux scenarios pour simplifier la decision. Je peux vous aider a choisir le bon perimetre.",
-    linkedIn:
+    shortMessage:
       "Bonjour, je me permets de vous relancer suite a notre echange. L'idee est surtout de clarifier le scenario le plus utile pour votre objectif commercial.",
     softVersion:
       "Je voulais simplement savoir si le sujet est toujours d'actualite ou s'il vaut mieux que je revienne vers vous plus tard.",
@@ -1212,181 +1049,5 @@ export function buildObjectionFallback(input: ObjectionFallbackInput): Objection
     nextAction: `${playbook.strategy} ${
       normalized.price ? `Prix discute : ${normalized.price}. ` : ""
     }Finir par une prochaine etape claire.`
-  };
-}
-
-export function buildLiveCoachFallback(input: {
-  transcript: string;
-  manualSignals?: string[];
-  sellerTalkRatio?: number;
-}): LiveCoachResponse {
-  const text = input.transcript.toLowerCase();
-  const createdAt = new Date().toISOString();
-  const events: LiveCoachResponse["events"] = [];
-  const detectedSignals: LiveCoachResponse["detectedSignals"] = [];
-
-  const addSignal = (
-    id: string,
-    label: string,
-    category: LiveCoachResponse["detectedSignals"][number]["category"],
-    confidence: number,
-    evidence: string,
-    recommendation: string
-  ) => {
-    detectedSignals.push({ id, label, category, confidence, evidence, recommendation });
-  };
-
-  const addEvent = (
-    id: string,
-    severity: LiveCoachResponse["events"][number]["severity"],
-    title: string,
-    insight: string,
-    suggestedPhrase: string,
-    questionToAsk: string,
-    mistakeToAvoid: string,
-    psychologicalLever: string
-  ) => {
-    events.push({
-      id,
-      createdAt,
-      severity,
-      title,
-      insight,
-      suggestedPhrase,
-      questionToAsk,
-      mistakeToAvoid,
-      psychologicalLever,
-      sourceSegmentIds: []
-    });
-  };
-
-  if (/prix|budget|cher|tarif|devis/.test(text) || input.manualSignals?.includes("prix")) {
-    addSignal(
-      "prix",
-      "Prix / budget detecte",
-      "objection",
-      0.82,
-      "Le prospect parle de prix, budget ou devis.",
-      "Revenir a la valeur et proposer deux scenarios sans remise brute."
-    );
-    addEvent(
-      "coach-prix",
-      "opportunity",
-      "Ancrer le prix sur la valeur",
-      "Le sujet prix arrive : c'est souvent un signal d'interet autant qu'une objection.",
-      "Je vous donne une fourchette, mais le plus juste est de la relier au perimetre et a l'impact recherche.",
-      "Vous voulez surtout comprendre le cout, le ROI ou les options possibles ?",
-      "Annoncer un prix sec ou baisser sans contrepartie.",
-      "Contraste + ancrage valeur"
-    );
-  }
-
-  if (/associe|decision|decideur|direction|proprietaire/.test(text) || input.manualSignals?.includes("associe")) {
-    addSignal(
-      "decision-interne",
-      "Decision interne",
-      "risque",
-      0.78,
-      "Un autre decideur ou associe semble implique.",
-      "Clarifier le processus et aider le prospect a vendre le projet en interne."
-    );
-    addEvent(
-      "coach-decision",
-      "warning",
-      "Verrouiller le processus de decision",
-      "Le risque est d'envoyer une proposition sans savoir qui tranche.",
-      "Pour que je vous aide a le presenter simplement, qu'est-ce qui comptera le plus pour la personne qui valide ?",
-      "Est-ce que c'est plutot un sujet budget, priorite, rendu ou impact commercial pour lui ?",
-      "Laisser partir le deal avec un simple 'tenez-moi au courant'.",
-      "Engagement + simplification de decision"
-    );
-  }
-
-  if (/reflechir|plus tard|pas prioritaire|on verra|je reviens vers vous/.test(text)) {
-    addSignal(
-      "objection-floue",
-      "Objection floue",
-      "risque",
-      0.75,
-      "Le prospect repousse sans critere clair.",
-      "Transformer le flou en critere de decision concret."
-    );
-    addEvent(
-      "coach-flou",
-      "urgent",
-      "Clarifier avant la fin du RDV",
-      "Une objection vague non clarifiee devient souvent un deal qui dort.",
-      "Bien sur. Pour que votre reflexion soit simple, qu'est-ce qui doit etre clarifie en priorite : budget, rendu, timing ou decision interne ?",
-      "Qu'est-ce qui vous manquerait pour prendre une decision sereine ?",
-      "Accepter trop vite le flou et relancer sans angle.",
-      "Controle doux du process"
-    );
-  }
-
-  if (/ok|interessant|envoyez|proposition|mardi|mercredi|semaine prochaine/.test(text)) {
-    addSignal(
-      "closing",
-      "Fenetre de closing",
-      "closing",
-      0.7,
-      "Le prospect montre une ouverture ou mentionne une suite.",
-      "Proposer une prochaine etape datee et simple."
-    );
-    addEvent(
-      "coach-closing",
-      "opportunity",
-      "Simplifier la prochaine etape",
-      "Le prospect semble assez informe pour avancer vers un choix.",
-      "On peut faire simple : je vous envoie deux scenarios, et on se garde 20 minutes pour choisir le bon perimetre.",
-      "Vous preferez qu'on se reparle mardi ou mercredi ?",
-      "Ajouter encore de l'information au lieu de conclure.",
-      "Engagement + reduction de friction"
-    );
-  }
-
-  const sellerTalkRatio = input.sellerTalkRatio ?? 55;
-  if (sellerTalkRatio > 62) {
-    addSignal(
-      "ecoute",
-      "Ratio parole trop haut",
-      "ecoute",
-      0.72,
-      "Le commercial semble prendre trop de place dans l'echange.",
-      "Ralentir, reformuler puis rendre la parole."
-    );
-    addEvent(
-      "coach-ecoute",
-      "warning",
-      "Rendre la parole",
-      "Le ratio d'ecoute peut nuire au diagnostic si vous enchainez trop vite.",
-      "Je m'arrete deux secondes : qu'est-ce que vous en pensez franchement ?",
-      "Est-ce que ca vous semble pertinent, trop tot, ou pas prioritaire ?",
-      "Combler le silence avec plus d'arguments.",
-      "Ecoute active + silence utile"
-    );
-  }
-
-  if (!events.length) {
-    addEvent(
-      "coach-diagnostic",
-      "info",
-      "Continuer le diagnostic",
-      "Aucun signal critique ne ressort encore. Le meilleur levier est de faire preciser l'enjeu business.",
-      "Avant de parler solution, j'aimerais comprendre ce que ce sujet vous coute aujourd'hui.",
-      "Quand un prospect ne se projette pas, il appelle, il compare, il repousse ou il abandonne ?",
-      "Passer trop vite en demonstration.",
-      "SPIN implication + aversion a la perte"
-    );
-  }
-
-  return {
-    summary:
-      detectedSignals.length > 0
-        ? "Signaux live detectes. Le prochain mouvement doit clarifier la valeur, le process ou la prochaine etape."
-        : "Pas encore assez de signaux. Continuez a creuser le besoin reel avant de vendre la solution.",
-    detectedSignals,
-    events,
-    sellerTalkRatio,
-    nextBestAction: events[0]?.questionToAsk ?? "Creuser l'impact business avec une question ouverte."
   };
 }

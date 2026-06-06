@@ -2,10 +2,6 @@ import type {
   CommercialReport,
   DealMaturity,
   FollowupStrategy,
-  LiveCoachResponse,
-  LiveCoachingEvent,
-  LiveSignalDetection,
-  LiveTranscriptSegment,
   MeetingContext,
   MeetingType,
   NegotiationStrategy,
@@ -18,38 +14,12 @@ export type {
   CommercialReport,
   DealMaturity,
   FollowupStrategy,
-  LiveCoachResponse,
-  LiveCoachingEvent,
-  LiveSignalDetection,
-  LiveTranscriptSegment,
   MeetingContext,
   MeetingType,
   NegotiationStrategy,
   ObjectionStrategy,
   Preparation,
   Sector
-};
-
-export type CopilotStep = {
-  id: string;
-  title: string;
-  timing: string;
-  objective: string;
-  phrase: string;
-  question: string;
-  signal: string;
-  avoid: string;
-  influence: string;
-};
-
-export type LiveSignal = {
-  id: string;
-  label: string;
-  risk: "positive" | "warning" | "danger" | "neutral";
-  meaning: string;
-  phrase: string;
-  nextQuestion: string;
-  avoid: string;
 };
 
 export type PsychologyCard = {
@@ -128,7 +98,7 @@ export type SalesCheatSheet = {
   items: string[];
 };
 
-export type IntegrationProvider = "airtable" | "googleCalendar" | "gmail" | "linkedin";
+export type IntegrationProvider = "airtable" | "googleCalendar" | "googleTasks" | "gmail" | "openai";
 
 export type IntegrationConnectionState =
   | "connected"
@@ -179,12 +149,54 @@ export type CalendarMeetingAction = {
   attendees?: string[];
 };
 
-export type LinkedInDraftAction = {
-  prospectName: string;
-  contactName?: string;
-  profileUrl?: string;
-  context?: string;
-  objective?: string;
+export type SalesProspect = {
+  id: string;
+  name: string;
+  company: string;
+  email: string;
+  phone?: string;
+  sector: Sector;
+  pipelineStatus: "nouveau" | "a_contacter" | "rdv_planifie" | "chaud" | "proposition" | "gagne" | "perdu";
+  source?: string;
+  need?: string;
+  potentialAmount?: number;
+  lastContactAt?: string;
+  nextAction?: string;
+  followupDate?: string;
+  notes?: string;
+  linkedInUrl?: string;
+  website?: string;
+};
+
+export type CommercialMeeting = {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  description?: string;
+  attendees: string[];
+  prospectName?: string;
+  source: "google" | "local" | "demo";
+};
+
+export type CommercialTask = {
+  id: string;
+  title: string;
+  due?: string;
+  status: "needsAction" | "completed";
+  taskListId?: string;
+  notes?: string;
+  prospectName?: string;
+  source: "google" | "local" | "demo";
+};
+
+export type GmailThreadSummary = {
+  id: string;
+  subject: string;
+  snippet: string;
+  prospectName?: string;
+  updatedAt?: string;
+  source: "gmail" | "demo";
 };
 
 export type StoredReport = {
@@ -200,29 +212,4 @@ export type StoredFollowup = {
   createdAt: string;
   prospectName: string;
   strategy: FollowupStrategy;
-};
-
-export type RealtimeConnectionStatus =
-  | "idle"
-  | "permission"
-  | "connecting"
-  | "connected"
-  | "coaching"
-  | "stopping"
-  | "missing-key"
-  | "unsupported"
-  | "error";
-
-export type LiveSessionState = {
-  status: RealtimeConnectionStatus;
-  error: string | null;
-  warning: string | null;
-  startedAt: string | null;
-  micActive: boolean;
-  tabAudioActive: boolean;
-  transcriptSegments: LiveTranscriptSegment[];
-  coachingEvents: LiveCoachingEvent[];
-  detectedSignals: LiveSignalDetection[];
-  sellerTalkRatio: number;
-  nextBestAction: string | null;
 };

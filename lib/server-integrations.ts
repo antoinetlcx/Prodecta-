@@ -30,10 +30,6 @@ export type IntegrationStore = {
   gmail?: {
     lastDraftAt?: string;
   };
-  linkedin?: {
-    mode: "assisted";
-    lastDraftAt?: string;
-  };
   updatedAt?: string;
 };
 
@@ -42,7 +38,7 @@ function storePath() {
     return process.env.PRODECTA_INTEGRATION_STORE_PATH;
   }
 
-  return path.resolve(LOCAL_DIR, STORE_FILE);
+  return path.join(/*turbopackIgnore: true*/ process.cwd(), LOCAL_DIR, STORE_FILE);
 }
 
 export async function readIntegrationStore(): Promise<IntegrationStore> {
@@ -113,6 +109,7 @@ export function buildIntegrationStatuses(store: IntegrationStore): IntegrationSt
   const airtableToken = getAirtableToken();
   const hasGoogle = Boolean(getGoogleAccessToken(store) || getGoogleRefreshToken(store));
   const googleExpired = hasGoogle && tokenExpiresSoon(store);
+  const googleState = hasGoogle ? (googleExpired ? "needs_reauth" : "connected") : "not_configured";
 
   return [
     status(
@@ -128,7 +125,7 @@ export function buildIntegrationStatuses(store: IntegrationStore): IntegrationSt
     status(
       "googleCalendar",
       "Google Calendar",
-      hasGoogle ? (googleExpired ? "needs_reauth" : "connected") : "not_configured",
+      googleState,
       hasGoogle
         ? "Import RDV et creation de relance disponibles."
         : "OAuth local a configurer pour importer et creer des RDV.",
@@ -136,9 +133,19 @@ export function buildIntegrationStatuses(store: IntegrationStore): IntegrationSt
       store.updatedAt
     ),
     status(
+      "googleTasks",
+      "Google Tasks",
+      googleState,
+      hasGoogle
+        ? "Lecture, creation et cloture de taches commerciales disponibles."
+        : "OAuth Google requis pour synchroniser les taches.",
+      hasGoogle,
+      store.updatedAt
+    ),
+    status(
       "gmail",
       "Gmail",
-      hasGoogle ? (googleExpired ? "needs_reauth" : "connected") : "not_configured",
+      googleState,
       hasGoogle
         ? "Recherche d'echanges et creation de brouillons activees."
         : "OAuth Gmail requis. Aucun email n'est envoye automatiquement.",
@@ -146,12 +153,13 @@ export function buildIntegrationStatuses(store: IntegrationStore): IntegrationSt
       store.gmail?.lastDraftAt
     ),
     status(
-      "linkedin",
-      "LinkedIn",
-      "assisted",
-      "Mode assiste : message pret a copier et ouverture du profil, sans automatisation.",
-      true,
-      store.linkedin?.lastDraftAt
+      "openai",
+      "OpenAI",
+      process.env.OPENAI_API_KEY ? "connected" : "not_configured",
+      process.env.OPENAI_API_KEY
+        ? "Generation avancee disponible en option."
+        : "Optionnel : conseils locaux, templates et synchronisations restent disponibles.",
+      Boolean(process.env.OPENAI_API_KEY)
     )
   ];
 }

@@ -9,6 +9,8 @@ function demoMeetings() {
       title: "RDV Prodecta - Chateau de la Cour Senlisse",
       start: "2026-06-08T10:00:00+02:00",
       end: "2026-06-08T11:00:00+02:00",
+      description: "Qualifier le besoin, le budget et la prochaine etape.",
+      attendees: ["sophie@example.com"],
       prospectName: "Chateau de la Cour Senlisse",
       source: "demo"
     },
@@ -17,6 +19,8 @@ function demoMeetings() {
       title: "Relance devis - Domaine Bellevue",
       start: "2026-06-09T15:30:00+02:00",
       end: "2026-06-09T16:00:00+02:00",
+      description: "Valider le perimetre et proposer une date de decision.",
+      attendees: ["marc@example.com"],
       prospectName: "Domaine Bellevue",
       source: "demo"
     }
@@ -60,7 +64,14 @@ export async function POST() {
   }
 
   const json = (await response.json()) as {
-    items?: Array<{ id: string; summary?: string; start?: { dateTime?: string; date?: string }; end?: { dateTime?: string; date?: string } }>;
+    items?: Array<{
+      id: string;
+      summary?: string;
+      description?: string;
+      attendees?: Array<{ email?: string; displayName?: string }>;
+      start?: { dateTime?: string; date?: string };
+      end?: { dateTime?: string; date?: string };
+    }>;
   };
 
   return Response.json({
@@ -73,6 +84,10 @@ export async function POST() {
         title: event.summary ?? "Sans titre",
         start: event.start?.dateTime ?? event.start?.date ?? "",
         end: event.end?.dateTime ?? event.end?.date ?? "",
+        description: event.description ?? "",
+        attendees: (event.attendees ?? [])
+          .map((attendee) => attendee.email ?? attendee.displayName ?? "")
+          .filter(Boolean),
         source: "google"
       }))
     }

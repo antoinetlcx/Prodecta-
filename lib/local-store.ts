@@ -2,10 +2,10 @@ export const STORAGE_KEYS = {
   meetingContext: "prodecta:meeting-context",
   reports: "prodecta:reports",
   followups: "prodecta:followups",
-  liveNotes: "prodecta:live-notes",
-  liveTranscript: "prodecta:live-transcript",
-  liveCoaching: "prodecta:live-coaching",
-  signals: "prodecta:signals"
+  prospects: "prodecta:prospects",
+  meetings: "prodecta:meetings",
+  tasks: "prodecta:tasks",
+  gmailThreads: "prodecta:gmail-threads"
 } as const;
 
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];

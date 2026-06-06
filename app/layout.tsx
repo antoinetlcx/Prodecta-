@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Prodecta Sales Pilot",
-  description: "Copilote commercial IA avant, pendant et apres RDV."
+  description: "Dashboard commercial connecte pour Calendar, Tasks, Gmail et Airtable."
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

@@ -27,7 +27,7 @@ export async function POST(request: Request) {
 
     const prompt = `Tu es le Relance Lab de Prodecta.
 Analyse cette situation et recommande la meilleure relance.
-Tu dois dire s'il faut relancer maintenant ou attendre, quel angle utiliser, quel canal choisir, quelle posture prix adopter, puis ecrire email, SMS et LinkedIn.
+Tu dois dire s'il faut relancer maintenant ou attendre, quel angle utiliser, quel canal choisir, quelle posture prix adopter, puis ecrire email, SMS et message court.
 
 Donnees:
 ${context}`;

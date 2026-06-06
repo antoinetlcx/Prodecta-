@@ -3,13 +3,6 @@ import { zodTextFormat } from "openai/helpers/zod";
 import type { z } from "zod";
 
 export const DEFAULT_TEXT_MODEL = process.env.OPENAI_TEXT_MODEL ?? "gpt-5.5";
-export const DEFAULT_TRANSCRIBE_MODEL =
-  process.env.OPENAI_TRANSCRIBE_MODEL ?? "gpt-4o-transcribe-diarize";
-export const DEFAULT_TRANSCRIBE_FALLBACK_MODEL =
-  process.env.OPENAI_TRANSCRIBE_FALLBACK_MODEL ?? "gpt-4o-transcribe";
-export const DEFAULT_REALTIME_MODEL = process.env.OPENAI_REALTIME_MODEL ?? "gpt-realtime-2";
-export const DEFAULT_REALTIME_TRANSCRIBE_MODEL =
-  process.env.OPENAI_REALTIME_TRANSCRIBE_MODEL ?? "gpt-realtime-whisper";
 
 const SYSTEM_PROMPT = `Tu es le directeur commercial senior de Prodecta.
 Tu analyses des rendez-vous B2B pour des apps web immersives destinees a des lieux physiques : hotels, chateaux, domaines, salles de sport, gites, restaurants et salles evenementielles.
