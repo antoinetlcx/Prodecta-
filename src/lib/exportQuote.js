@@ -21,22 +21,17 @@ function csvEscape(value) {
 }
 
 export function buildQontoReadyPayload(quote) {
-  const setupItems = quote.pricing.setupModules.map((module) => ({
-    type: "setup",
+  const lineItems = (quote.pricing.lineItems || quote.pricing.selectedModules || []).map((module) => ({
+    type: module.monthlyPublic > 0 && module.setupPublic === 0 ? "subscription" : "service",
     title: module.label,
+    property: module.propertyName || "Client",
     category: module.category,
     description: module.description,
-    quantity: 1,
-    unit_price_ht: roundMoney(module.setupPublic),
-  }));
-
-  const recurringItems = quote.pricing.recurringModules.map((module) => ({
-    type: "subscription",
-    title: `${module.label} (mensuel)`,
-    category: module.category,
-    description: module.description,
-    quantity: 1,
-    unit_price_ht: roundMoney(module.monthlyPublic),
+    quantity: module.quantity || 1,
+    unit_setup_price: roundMoney(module.unitSetupPublic ?? module.setupPublic),
+    setup_total: roundMoney(module.setupPublic),
+    unit_monthly_price: roundMoney(module.unitMonthlyPublic ?? module.monthlyPublic),
+    monthly_total: roundMoney(module.monthlyPublic),
   }));
 
   const discountItem =
@@ -48,7 +43,10 @@ export function buildQontoReadyPayload(quote) {
             category: "Remise",
             description: `${roundMoney(quote.pricing.discount.appliedDiscountPct)} % sur les frais de création`,
             quantity: 1,
-            unit_price_ht: -quote.pricing.discount.appliedDiscountEuro,
+            unit_setup_price: -quote.pricing.discount.appliedDiscountEuro,
+            setup_total: -quote.pricing.discount.appliedDiscountEuro,
+            unit_monthly_price: 0,
+            monthly_total: 0,
           },
         ]
       : [];
@@ -68,11 +66,12 @@ export function buildQontoReadyPayload(quote) {
     client: quote.client,
     invoiceDraft: {
       currency: "EUR",
-      lineItems: [...setupItems, ...recurringItems, ...discountItem],
+      properties: quote.pricing.properties || [],
+      lineItems: [...lineItems, ...discountItem],
       totals: {
-        setup_ht: quote.pricing.setupFinalHT,
-        monthly_ht: quote.pricing.monthlyFinalHT,
-        startup_total_ht: quote.pricing.startupTotalHT,
+        setup: quote.pricing.setupFinalHT,
+        monthly: quote.pricing.monthlyFinalHT,
+        startup_total: quote.pricing.startupTotalHT,
       },
     },
     qontoPreparation: {
@@ -92,20 +91,23 @@ export function exportQuoteJson(quote) {
 export function exportQuoteCsv(quote) {
   const payload = buildQontoReadyPayload(quote);
   const rows = [
-    ["Type", "Catégorie", "Service", "Description", "Quantité", "Prix unitaire HT", "Total ligne HT"],
+    ["Type", "Bien", "Catégorie", "Service", "Description", "Quantité", "Création unitaire", "Création", "Mensuel unitaire", "Mensuel"],
     ...payload.invoiceDraft.lineItems.map((line) => [
       line.type,
+      line.property || "",
       line.category,
       line.title,
       line.description,
       line.quantity,
-      line.unit_price_ht,
-      roundMoney(line.quantity * line.unit_price_ht),
+      line.unit_setup_price,
+      line.setup_total,
+      line.unit_monthly_price,
+      line.monthly_total,
     ]),
     [],
-    ["Frais de création HT", "", "", "", "", "", quote.pricing.setupFinalHT],
-    ["Abonnement mensuel HT", "", "", "", "", "", quote.pricing.monthlyFinalHT],
-    ["Total de démarrage HT", "", "", "", "", "", quote.pricing.startupTotalHT],
+    ["Frais de création", "", "", "", "", "", "", quote.pricing.setupFinalHT, "", ""],
+    ["Abonnement mensuel", "", "", "", "", "", "", "", "", quote.pricing.monthlyFinalHT],
+    ["Total de démarrage", "", "", "", "", "", "", quote.pricing.startupTotalHT, "", quote.pricing.monthlyFinalHT],
   ];
 
   const content = rows.map((row) => row.map(csvEscape).join(";")).join("\n");
@@ -180,18 +182,20 @@ export async function exportQuotePdf(quote, options = {}) {
   doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
   doc.text("Service", margin, y);
-  doc.text("Setup HT", right - 150, y, { align: "right" });
-  doc.text("Mensuel HT", right, y, { align: "right" });
+  doc.text("Bien", margin + 190, y);
+  doc.text("Création", right - 150, y, { align: "right" });
+  doc.text("Mensuel", right, y, { align: "right" });
   y += 10;
   doc.setDrawColor(226, 232, 240);
   doc.line(margin, y, right, y);
   y += 18;
 
-  quote.pricing.selectedModules.forEach((module) => {
+  (quote.pricing.lineItems || quote.pricing.selectedModules).forEach((module) => {
     y = addPageIfNeeded(doc, y);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
     doc.text(module.label, margin, y);
+    doc.text(module.propertyName || "Client", margin + 190, y);
     doc.text(eur(module.setupPublic), right - 150, y, { align: "right" });
     doc.text(eur(module.monthlyPublic, " €/mois"), right, y, { align: "right" });
     y += 14;
@@ -208,11 +212,11 @@ export async function exportQuotePdf(quote, options = {}) {
   y += 24;
 
   const totalRows = [
-    ["Frais de création HT", quote.pricing.setupPublicSubtotal],
+    ["Frais de création", quote.pricing.setupPublicSubtotal],
     ...(!clientMode ? [["Remise", -quote.pricing.discount.appliedDiscountEuro]] : []),
-    ["Prix final création HT", quote.pricing.setupFinalHT],
-    ["Abonnement mensuel HT", quote.pricing.monthlyFinalHT],
-    ["Total de démarrage HT", quote.pricing.startupTotalHT],
+    ["Prix final création", quote.pricing.setupFinalHT],
+    ["Abonnement mensuel", quote.pricing.monthlyFinalHT],
+    ["Total de démarrage", quote.pricing.startupTotalHT],
   ];
 
   totalRows.forEach(([label, value], index) => {
@@ -249,10 +253,13 @@ export function createPlainTextSummary(quote) {
     `Client : ${quote.client.name || "Non renseigné"}`,
     `Établissement : ${quote.client.establishmentName || "Non renseigné"}`,
     `Secteur : ${quote.sectorLabel}`,
-    `Modules : ${quote.pricing.selectedModules.map((module) => module.label).join(", ")}`,
-    `Frais de création HT : ${eur(quote.pricing.setupFinalHT)}`,
-    `Abonnement mensuel HT : ${eur(quote.pricing.monthlyFinalHT, " €/mois")}`,
-    `Total de démarrage HT : ${eur(quote.pricing.startupTotalHT)}`,
+    `Biens : ${quote.pricing.propertyCount || 1}`,
+    `Visites : ${quote.pricing.virtualVisitCount || 0}`,
+    `Espaces Matterport : ${quote.pricing.matterportSpaces || 0}`,
+    `Apps web : ${quote.pricing.webAppCount || 0}`,
+    `Frais de création : ${eur(quote.pricing.setupFinalHT)}`,
+    `Abonnement mensuel : ${eur(quote.pricing.monthlyFinalHT, " €/mois")}`,
+    `Total de démarrage : ${eur(quote.pricing.startupTotalHT)}`,
   ];
   return lines.join("\n");
 }

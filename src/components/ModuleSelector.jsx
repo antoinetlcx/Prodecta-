@@ -27,6 +27,9 @@ export function ModuleSelector({
   onCustomPriceChange,
   onApplyPreset,
   isClientMode = false,
+  showPresets = true,
+  title = "Modules de l’offre",
+  eyebrow = "Composition",
 }) {
   const activePresetIndex = getActivePresetIndex(selectedModuleIds);
 
@@ -35,25 +38,27 @@ export function ModuleSelector({
       <div className="border-b border-slate-100 bg-white/90 p-4">
         <div className="flex flex-col justify-between gap-3 md:flex-row md:items-end">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Composition</p>
-            <h2 className="text-xl font-black tracking-tight">Modules de l’offre</h2>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">{eyebrow}</p>
+            <h2 className="text-xl font-black tracking-tight">{title}</h2>
           </div>
-          <div className="grid min-w-[260px] grid-cols-3 gap-2">
-            {PLAN_PRESETS.map((preset, index) => (
-              <button
-                key={preset.name}
-                type="button"
-                onClick={() => onApplyPreset(index)}
-                className={`rounded-2xl border px-3 py-2 text-center text-xs font-black transition ${
-                  activePresetIndex === index
-                    ? "border-emerald-500 bg-emerald-50 text-emerald-800 shadow-sm"
-                    : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
-                }`}
-              >
-                {preset.name}
-              </button>
-            ))}
-          </div>
+          {showPresets && (
+            <div className="grid min-w-[260px] grid-cols-3 gap-2">
+              {PLAN_PRESETS.map((preset, index) => (
+                <button
+                  key={preset.name}
+                  type="button"
+                  onClick={() => onApplyPreset(index)}
+                  className={`rounded-2xl border px-3 py-2 text-center text-xs font-black transition ${
+                    activePresetIndex === index
+                      ? "border-emerald-500 bg-emerald-50 text-emerald-800 shadow-sm"
+                      : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                  }`}
+                >
+                  {preset.name}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -132,7 +137,7 @@ export function ModuleSelector({
                         <div className={`grid gap-2 border-t border-emerald-100 bg-white/70 p-3 ${isClientMode ? "md:grid-cols-2" : "md:grid-cols-4"}`}>
                           <NumberField
                             dense
-                            label="Setup public"
+                            label="Création public"
                             unit="€"
                             step={50}
                             value={custom.setupPublic ?? module.setupPublic}
@@ -150,7 +155,7 @@ export function ModuleSelector({
                             <>
                               <NumberField
                                 dense
-                                label="Setup plancher"
+                                label="Création minimum"
                                 unit="€"
                                 step={50}
                                 value={custom.setupMinimum ?? module.setupMinimum}

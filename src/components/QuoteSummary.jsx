@@ -52,7 +52,7 @@ export function QuoteSummary({
 
       <div className={compact ? "space-y-3" : "space-y-4"}>
         <div className={`${compact ? "rounded-2xl p-3" : "rounded-2xl p-4"} bg-slate-50`}>
-          <p className="text-xs font-black uppercase tracking-wide text-slate-400">Total de démarrage HT</p>
+          <p className="text-xs font-black uppercase tracking-wide text-slate-400">Total de démarrage</p>
           <p className={`${compact ? "text-3xl" : "text-4xl"} mt-1 font-black tracking-tight text-slate-950`}>{eur(pricing.startupTotalHT)}</p>
           <p className="mt-1 text-sm font-bold text-slate-500">Création + premier mois</p>
         </div>
@@ -60,22 +60,25 @@ export function QuoteSummary({
         <div className={compact ? "space-y-2" : "space-y-3"}>
           <SummaryRow label="Frais de création" value={eur(pricing.setupPublicSubtotal)} />
           {!isClientMode && <SummaryRow label="Remise" value={`-${eur(pricing.discount.appliedDiscountEuro)}`} />}
-          <SummaryRow label="Création finale HT" value={eur(pricing.setupFinalHT)} strong />
-          <SummaryRow label="Abonnement mensuel HT" value={eur(pricing.monthlyFinalHT, " €/mois")} strong />
-          <SummaryRow label="Total de démarrage HT" value={eur(pricing.startupTotalHT)} strong />
+          <SummaryRow label="Création finale" value={eur(pricing.setupFinalHT)} strong />
+          <SummaryRow label="Abonnement mensuel" value={eur(pricing.monthlyFinalHT, " €/mois")} strong />
+          <SummaryRow label="Total de démarrage" value={eur(pricing.startupTotalHT)} strong />
         </div>
 
         <div className={`${compact ? "rounded-2xl p-3" : "rounded-2xl p-4"} border border-slate-200 bg-white`}>
           <div className="mb-3 flex items-center justify-between">
             <p className="text-sm font-black text-slate-800">Modules sélectionnés</p>
             <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-black text-emerald-700">
-              {pricing.selectedModules.length}
+              {pricing.selectedModules.reduce((sum, module) => sum + (module.quantity || 1), 0)}
             </span>
           </div>
           <div className="space-y-2 pr-1">
             {pricing.selectedModules.map((module) => (
               <div key={module.id} className="flex items-center justify-between gap-3 text-sm">
-                <span className="min-w-0 truncate font-semibold text-slate-600">{module.label}</span>
+                <span className="min-w-0 truncate font-semibold text-slate-600">
+                  {module.label}
+                  {(module.quantity || 1) > 1 ? ` x${module.quantity}` : ""}
+                </span>
                 <span className="whitespace-nowrap font-black text-slate-900">
                   {module.monthlyPublic > 0 ? eur(module.monthlyPublic, " €/mois") : eur(module.setupPublic)}
                 </span>

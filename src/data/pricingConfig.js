@@ -128,6 +128,7 @@ export const MODULE_CATEGORIES = [
 ];
 
 export const SUBSCRIPTION_MODULE_IDS = [
+  "matterport-space",
   "hosting-maintenance",
   "analytics-dashboard",
   "monthly-updates-support",
@@ -162,6 +163,19 @@ export const MODULE_CATALOG = [
     recommended: true,
     setupMode: "interior-surface",
     monthlyMode: "none",
+  },
+  {
+    id: "matterport-space",
+    label: "Espace Matterport",
+    category: "Abonnement récurrent",
+    description: "Abonnement Matterport par visite virtuelle active.",
+    icon: MapPinned,
+    defaultSelected: false,
+    recommended: true,
+    setupPublic: 0,
+    setupMinimum: 0,
+    monthlyPublic: 10,
+    monthlyMinimum: 10,
   },
   {
     id: "web-app-immersive",
@@ -318,9 +332,60 @@ export const MODULE_CATALOG = [
   },
 ];
 
-export const DEFAULT_SELECTED_MODULE_IDS = MODULE_CATALOG.filter((module) => module.defaultSelected).map(
+export const PROPERTY_MODULE_IDS = [
+  "interior-capture",
+  "matterport-space",
+  "web-app-immersive",
+  "exterior-capture",
+  "hosting-maintenance",
+  "analytics-dashboard",
+  "monthly-updates-support",
+  "booking-module",
+  "quote-contact-module",
+  "conversion-popup",
+  "automation",
+];
+
+export const GLOBAL_MODULE_IDS = MODULE_CATALOG.filter((module) => !PROPERTY_MODULE_IDS.includes(module.id)).map(
   (module) => module.id,
 );
+
+export const DEFAULT_PROPERTY_MODULE_IDS = MODULE_CATALOG.filter(
+  (module) => module.defaultSelected && PROPERTY_MODULE_IDS.includes(module.id),
+).map((module) => module.id);
+
+export const DEFAULT_SELECTED_MODULE_IDS = MODULE_CATALOG.filter(
+  (module) => module.defaultSelected && GLOBAL_MODULE_IDS.includes(module.id),
+).map((module) => module.id);
+
+export const PROPERTY_PRESETS = [
+  {
+    name: "Visite simple",
+    moduleIds: ["interior-capture", "matterport-space"],
+  },
+  {
+    name: "App + Matterport",
+    moduleIds: ["interior-capture", "matterport-space", "web-app-immersive", "hosting-maintenance"],
+  },
+  {
+    name: "Performance",
+    moduleIds: ["interior-capture", "matterport-space", "web-app-immersive", "hosting-maintenance", "analytics-dashboard"],
+  },
+  {
+    name: "Premium",
+    moduleIds: [
+      "interior-capture",
+      "matterport-space",
+      "web-app-immersive",
+      "hosting-maintenance",
+      "analytics-dashboard",
+      "monthly-updates-support",
+      "booking-module",
+      "quote-contact-module",
+      "conversion-popup",
+    ],
+  },
+];
 
 export const DEFAULT_CUSTOM_MODULE_PRICES = {
   "full-website": {

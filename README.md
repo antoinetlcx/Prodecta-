@@ -1,6 +1,6 @@
 # Simulateur Prodecta
 
-Application React/Vite pour composer une offre commerciale Prodecta, calculer les frais de création, l'abonnement mensuel, le total de démarrage HT et générer des exports de devis.
+Application React/Vite pour composer une offre commerciale Prodecta multi-biens, calculer les frais de création, l'abonnement mensuel, le total de démarrage et générer des exports de devis.
 
 ## Scripts
 
@@ -12,7 +12,7 @@ Application React/Vite pour composer une offre commerciale Prodecta, calculer le
 ## Structure
 
 - `src/data/pricingConfig.js` : secteurs, tranches historiques, modules commerciaux et presets d'abonnement.
-- `src/lib/pricing.js` : moteur centralisé de calcul des prix.
+- `src/lib/pricing.js` : moteur centralisé de calcul des prix, avec biens détaillés et modules par bien.
 - `src/lib/quoteStorage.js` : persistance des devis dans `localStorage`.
 - `src/lib/exportQuote.js` : exports PDF, JSON et CSV.
 - `src/components/` : composants UI séparés pour la fiche devis, les modules, le résumé, les conditions et la bibliothèque.

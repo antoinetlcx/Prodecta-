@@ -52,7 +52,7 @@ export function QuoteLibrary({ quotes, currentQuoteId, onOpen, onDelete, compact
                       </span>
                       <span className="text-[11px] font-bold text-slate-400">{formatDate(quote.updatedAt)}</span>
                       <span className="text-[11px] font-black text-emerald-700">
-                        {eur(quote.pricing.startupTotalHT ?? (quote.pricing.setupFinalHT || 0) + (quote.pricing.monthlyFinalHT || 0))} HT
+                        {eur(quote.pricing.startupTotalHT ?? (quote.pricing.setupFinalHT || 0) + (quote.pricing.monthlyFinalHT || 0))}
                       </span>
                     </div>
                   </button>

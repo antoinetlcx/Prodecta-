@@ -11,15 +11,15 @@ import {
   Percent,
   RotateCcw,
   Sparkles,
-  Settings2,
 } from "lucide-react";
 import { CommercialTerms } from "./components/CommercialTerms.jsx";
 import { ModuleSelector } from "./components/ModuleSelector.jsx";
 import { PricingBreakdown } from "./components/PricingBreakdown.jsx";
+import { PropertiesManager } from "./components/PropertiesManager.jsx";
 import { QuoteForm } from "./components/QuoteForm.jsx";
 import { QuoteLibrary } from "./components/QuoteLibrary.jsx";
 import { QuoteSummary } from "./components/QuoteSummary.jsx";
-import { Card, NumberField, StatCard, Toggle } from "./components/ui.jsx";
+import { Card, StatCard } from "./components/ui.jsx";
 import {
   DEFAULT_COMMERCIAL_TERMS,
   DEFAULT_CUSTOM_MODULE_PRICES,
@@ -35,7 +35,7 @@ import {
   exportQuotePdf,
 } from "./lib/exportQuote.js";
 import { eur, pct } from "./lib/formatters.js";
-import { calculateQuote } from "./lib/pricing.js";
+import { calculateQuote, createDefaultProperty, normalizeProperties } from "./lib/pricing.js";
 import { createQuoteId, loadQuotes, persistQuotes, removeQuote, upsertQuote } from "./lib/quoteStorage.js";
 
 const DEFAULT_QUOTE_META = {
@@ -61,6 +61,26 @@ function cloneCustomPrices(value = DEFAULT_CUSTOM_MODULE_PRICES) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function cloneValue(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function createPropertyId() {
+  return `property-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function createNewProperty(index) {
+  return createDefaultProperty(index, {
+    id: createPropertyId(),
+    name: `Bien ${index}`,
+    surfaceInterior: 50,
+    surfaceExterior: 0,
+    manualPoints: false,
+    pointsExterior: 0,
+    selectedModuleIds: ["interior-capture", "matterport-space"],
+  });
+}
+
 function buildDefaultQuoteName(meta, pricing) {
   const target = meta.establishmentName || meta.clientName || pricing.sector.label;
   return `Devis Prodecta - ${target}`;
@@ -79,6 +99,18 @@ function serializePricing(pricing) {
     selectedModules: pricing.selectedModules.map(({ icon, ...module }) => module),
     setupModules: pricing.setupModules.map(({ icon, ...module }) => module),
     recurringModules: pricing.recurringModules.map(({ icon, ...module }) => module),
+    lineItems: pricing.lineItems.map(({ icon, ...module }) => module),
+    properties: pricing.properties,
+    propertyQuotes: pricing.propertyQuotes.map((propertyQuote) => ({
+      ...propertyQuote,
+      catalogModules: propertyQuote.catalogModules.map(({ icon, ...module }) => module),
+      selectedModules: propertyQuote.selectedModules.map(({ icon, ...module }) => module),
+    })),
+    propertyCount: pricing.propertyCount,
+    virtualVisitCount: pricing.virtualVisitCount,
+    matterportSpaces: pricing.matterportSpaces,
+    webAppCount: pricing.webAppCount,
+    trackingCount: pricing.trackingCount,
     setupPublicSubtotal: pricing.setupPublicSubtotal,
     setupMinimumSubtotal: pricing.setupMinimumSubtotal,
     monthlyPublicSubtotal: pricing.monthlyPublicSubtotal,
@@ -95,6 +127,7 @@ function serializePricing(pricing) {
 function App() {
   const [quoteMeta, setQuoteMeta] = useState(DEFAULT_QUOTE_META);
   const [inputs, setInputs] = useState(DEFAULT_INPUTS);
+  const [properties, setProperties] = useState(() => normalizeProperties(DEFAULT_INPUTS));
   const [commercialTerms, setCommercialTerms] = useState(DEFAULT_COMMERCIAL_TERMS);
   const [selectedModuleIds, setSelectedModuleIds] = useState(DEFAULT_SELECTED_MODULE_IDS);
   const [customModulePrices, setCustomModulePrices] = useState(() => cloneCustomPrices());
@@ -112,10 +145,11 @@ function App() {
       calculateQuote({
         ...inputs,
         ...commercialTerms,
+        properties,
         selectedModuleIds,
         customModulePrices,
       }),
-    [inputs, commercialTerms, selectedModuleIds, customModulePrices],
+    [inputs, commercialTerms, properties, selectedModuleIds, customModulePrices],
   );
 
   const sector = pricing.sector;
@@ -143,6 +177,7 @@ function App() {
       inputs: {
         ...inputs,
         ...commercialTerms,
+        properties,
         selectedModuleIds,
         customModulePrices,
       },
@@ -152,7 +187,7 @@ function App() {
         internalNotes: quoteMeta.internalNotes,
       },
     };
-  }, [currentQuoteId, quotes, quoteMeta, sector.label, inputs, commercialTerms, selectedModuleIds, customModulePrices, pricing]);
+  }, [currentQuoteId, quotes, quoteMeta, sector.label, inputs, commercialTerms, properties, selectedModuleIds, customModulePrices, pricing]);
 
   const updateInput = (key, value) => {
     setInputs((previous) => ({ ...previous, [key]: value }));
@@ -161,6 +196,85 @@ function App() {
 
   const updateTerms = (nextTerms) => {
     setCommercialTerms(nextTerms);
+    setSavedAt(null);
+  };
+
+  const updateProperty = (propertyId, patch) => {
+    setProperties((previous) =>
+      previous.map((property) => (property.id === propertyId ? { ...property, ...patch } : property)),
+    );
+    setSavedAt(null);
+  };
+
+  const addProperty = () => {
+    setProperties((previous) => [...previous, createNewProperty(previous.length + 1)]);
+    setSavedAt(null);
+  };
+
+  const duplicateProperty = (propertyId) => {
+    setProperties((previous) => {
+      const source = previous.find((property) => property.id === propertyId);
+      if (!source) return previous;
+      return [
+        ...previous,
+        {
+          ...cloneValue(source),
+          id: createPropertyId(),
+          name: `${source.name} copie`,
+        },
+      ];
+    });
+    setSavedAt(null);
+  };
+
+  const deleteProperty = (propertyId) => {
+    setProperties((previous) => (previous.length <= 1 ? previous : previous.filter((property) => property.id !== propertyId)));
+    setSavedAt(null);
+  };
+
+  const togglePropertyModule = (propertyId, moduleId) => {
+    setProperties((previous) =>
+      previous.map((property) => {
+        if (property.id !== propertyId) return property;
+        const selectedModuleIds = property.selectedModuleIds.includes(moduleId)
+          ? property.selectedModuleIds.filter((id) => id !== moduleId)
+          : [...property.selectedModuleIds, moduleId];
+        return { ...property, selectedModuleIds };
+      }),
+    );
+    setSavedAt(null);
+  };
+
+  const applyPropertyPreset = (propertyId, moduleIds) => {
+    setProperties((previous) =>
+      previous.map((property) =>
+        property.id === propertyId ? { ...property, selectedModuleIds: [...moduleIds] } : property,
+      ),
+    );
+    setSavedAt(null);
+  };
+
+  const applyPresetToAllProperties = (moduleIds) => {
+    setProperties((previous) => previous.map((property) => ({ ...property, selectedModuleIds: [...moduleIds] })));
+    setSavedAt(null);
+  };
+
+  const updatePropertyCustomPrice = (propertyId, moduleId, key, value) => {
+    setProperties((previous) =>
+      previous.map((property) => {
+        if (property.id !== propertyId) return property;
+        return {
+          ...property,
+          customModulePrices: {
+            ...(property.customModulePrices || {}),
+            [moduleId]: {
+              ...(property.customModulePrices?.[moduleId] || {}),
+              [key]: value,
+            },
+          },
+        };
+      }),
+    );
     setSavedAt(null);
   };
 
@@ -195,6 +309,7 @@ function App() {
   const reset = () => {
     setQuoteMeta(DEFAULT_QUOTE_META);
     setInputs(DEFAULT_INPUTS);
+    setProperties(normalizeProperties(DEFAULT_INPUTS));
     setCommercialTerms(DEFAULT_COMMERCIAL_TERMS);
     setSelectedModuleIds(DEFAULT_SELECTED_MODULE_IDS);
     setCustomModulePrices(cloneCustomPrices());
@@ -241,13 +356,14 @@ function App() {
       manualPoints: quote.inputs?.manualPoints ?? DEFAULT_INPUTS.manualPoints,
       pointsExterior: quote.inputs?.pointsExterior ?? DEFAULT_INPUTS.pointsExterior,
     });
+    setProperties(normalizeProperties(quote.inputs || DEFAULT_INPUTS));
     setCommercialTerms({
       discountType: quote.inputs?.discountType || DEFAULT_COMMERCIAL_TERMS.discountType,
       discountPercent: quote.inputs?.discountPercent ?? DEFAULT_COMMERCIAL_TERMS.discountPercent,
       discountFixed: quote.inputs?.discountFixed ?? DEFAULT_COMMERCIAL_TERMS.discountFixed,
       marginMode: quote.inputs?.marginMode || DEFAULT_COMMERCIAL_TERMS.marginMode,
     });
-    setSelectedModuleIds(quote.inputs?.selectedModuleIds?.length ? quote.inputs.selectedModuleIds : DEFAULT_SELECTED_MODULE_IDS);
+    setSelectedModuleIds(Array.isArray(quote.inputs?.selectedModuleIds) ? quote.inputs.selectedModuleIds : DEFAULT_SELECTED_MODULE_IDS);
     setCustomModulePrices(cloneCustomPrices(quote.inputs?.customModulePrices || DEFAULT_CUSTOM_MODULE_PRICES));
     setSavedAt(quote.updatedAt);
   };
@@ -337,7 +453,8 @@ function App() {
             {[
               ["#overview", "Vue d’ensemble"],
               ["#settings", "Paramètres"],
-              ["#modules", "Modules"],
+              ["#properties", "Biens"],
+              ["#modules", "Services globaux"],
               ...(!isClientMode ? [["#control", "Contrôle"]] : []),
               ["#quote", "Devis"],
             ].map(([href, label]) => (
@@ -356,12 +473,12 @@ function App() {
         </nav>
 
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <StatCard compact icon={Euro} label="Création HT" value={eur(pricing.setupFinalHT)} detail={isClientMode ? "Frais de création" : `Base ${eur(pricing.setupPublicSubtotal)}`} />
-          <StatCard compact icon={Sparkles} label="Mensuel HT" value={eur(pricing.monthlyFinalHT, " €/mois")} detail="Abonnement composé" />
-          <StatCard compact icon={Calculator} label="Démarrage HT" value={eur(pricing.startupTotalHT)} detail="Création + 1er mois" tone="slate" />
-          <StatCard compact icon={Layers3} label="Modules" value={String(pricing.selectedModules.length)} detail={sector.label} tone="emerald" />
+          <StatCard compact icon={Layers3} label="Biens" value={String(pricing.propertyCount)} detail={`${pricing.virtualVisitCount} visites`} />
+          <StatCard compact icon={MapPinned} label="Matterport" value={String(pricing.matterportSpaces)} detail={eur(pricing.matterportSpaces * 10, " €/mois")} />
+          <StatCard compact icon={Sparkles} label="Apps web" value={String(pricing.webAppCount)} detail={`${pricing.trackingCount} tracking`} tone="slate" />
+          <StatCard compact icon={Euro} label="Création" value={eur(pricing.setupFinalHT)} detail={isClientMode ? "Frais de création" : `Base ${eur(pricing.setupPublicSubtotal)}`} />
           {isClientMode ? (
-            <StatCard compact icon={MapPinned} label="Projet" value={`${pricing.intSurface} m²`} detail={`${pricing.points} points ext.`} tone="slate" />
+            <StatCard compact icon={Calculator} label="Démarrage" value={eur(pricing.startupTotalHT)} detail={eur(pricing.monthlyFinalHT, " €/mois")} tone="emerald" />
           ) : (
             <StatCard compact icon={Percent} label="Remise" value={pct(pricing.discount.appliedDiscountPct)} detail={eur(pricing.discount.appliedDiscountEuro)} tone="amber" />
           )}
@@ -377,20 +494,20 @@ function App() {
                     Offre {sector.label}
                   </h2>
                   <p className="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-slate-500">
-                    Une proposition lisible : frais de création, abonnement mensuel et total de démarrage hors taxes.
+                    Une proposition détaillée par bien, avec création, mensuel et total de démarrage.
                   </p>
                   <div className="mt-5 grid gap-3 md:grid-cols-3">
                     <div className="border-l border-slate-200 pl-4">
-                      <p className="text-xs font-black uppercase tracking-wide text-slate-400">Surface</p>
-                      <p className="mt-1 text-lg font-black">{pricing.intSurface} m² · {pricing.extSurface} m²</p>
+                      <p className="text-xs font-black uppercase tracking-wide text-slate-400">Biens</p>
+                      <p className="mt-1 text-lg font-black">{pricing.propertyCount} biens détaillés</p>
                     </div>
                     <div className="border-l border-slate-200 pl-4">
                       <p className="text-xs font-black uppercase tracking-wide text-slate-400">Production</p>
-                      <p className="mt-1 text-lg font-black">{pricing.points} points extérieurs</p>
+                      <p className="mt-1 text-lg font-black">{pricing.virtualVisitCount} visites · {pricing.matterportSpaces} Matterport</p>
                     </div>
                     <div className="border-l border-slate-200 pl-4">
                       <p className="text-xs font-black uppercase tracking-wide text-slate-400">Services</p>
-                      <p className="mt-1 text-lg font-black">{pricing.selectedModules.length} modules inclus</p>
+                      <p className="mt-1 text-lg font-black">{pricing.webAppCount} apps · {pricing.trackingCount} tracking</p>
                     </div>
                   </div>
                 </div>
@@ -398,22 +515,22 @@ function App() {
                 <div className="rounded-[18px] border border-slate-200 bg-slate-50 p-4">
                   <div className="space-y-3">
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-sm font-bold text-slate-500">Création HT</span>
+                      <span className="text-sm font-bold text-slate-500">Création</span>
                       <span className="text-xl font-black tabular-nums text-slate-950">{eur(pricing.setupFinalHT)}</span>
                     </div>
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-sm font-bold text-slate-500">Mensuel HT</span>
+                      <span className="text-sm font-bold text-slate-500">Mensuel</span>
                       <span className="text-xl font-black tabular-nums text-slate-950">{eur(pricing.monthlyFinalHT, " €/mois")}</span>
                     </div>
                     <div className="border-t border-slate-200 pt-3">
                       <div className="flex items-center justify-between gap-4">
-                        <span className="text-sm font-black text-emerald-800">Total de démarrage HT</span>
+                        <span className="text-sm font-black text-emerald-800">Total de démarrage</span>
                         <span className="text-2xl font-black tabular-nums text-emerald-800">{eur(pricing.startupTotalHT)}</span>
                       </div>
                     </div>
                     {!isClientMode && (
                       <div className="rounded-2xl bg-white px-3 py-2 text-xs font-bold text-slate-500">
-                        Marge setup : <span className="font-black text-slate-950">{eur(pricing.floorDelta)}</span>
+                        Marge création : <span className="font-black text-slate-950">{eur(pricing.floorDelta)}</span>
                       </div>
                     )}
                   </div>
@@ -428,7 +545,7 @@ function App() {
             <p className="text-xs font-black uppercase tracking-[0.25em] text-emerald-700">Paramètres du projet</p>
             <h2 id="settings-title" className="text-2xl font-black">Réglages de l’offre</h2>
           </div>
-          <div className="grid gap-3 xl:grid-cols-[minmax(320px,0.9fr)_minmax(320px,1fr)_minmax(320px,0.9fr)]">
+          <div className="grid gap-3 xl:grid-cols-[minmax(320px,0.9fr)_minmax(320px,1fr)]">
             <QuoteForm
               compact
               isClientMode={isClientMode}
@@ -474,49 +591,40 @@ function App() {
               </div>
               <p className="mt-3 rounded-2xl bg-slate-50 p-2.5 text-xs font-semibold leading-relaxed text-slate-500">{sector.note}</p>
             </Card>
-
-            <Card className="rounded-2xl p-4 shadow-sm">
-              <div className="mb-3 flex items-center gap-2">
-                <Settings2 size={17} className="text-emerald-700" />
-                <h2 className="text-base font-black">Production</h2>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <NumberField dense label="Intérieur" unit="m²" value={inputs.surfaceInterior} onChange={(value) => updateInput("surfaceInterior", value)} />
-                <NumberField
-                  dense
-                  label="Extérieur"
-                  unit="m²"
-                  value={inputs.surfaceExterior}
-                  onChange={(value) => updateInput("surfaceExterior", value)}
-                  hint="auto"
-                />
-              </div>
-              <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-xs font-black text-slate-800">Points extérieurs</p>
-                    <p className="text-xs font-medium text-slate-500">Auto : {pricing.estimatedPoints} pts</p>
-                  </div>
-                  <Toggle checked={inputs.manualPoints} onChange={(value) => updateInput("manualPoints", value)} label="Saisie manuelle des points" />
-                </div>
-                {inputs.manualPoints && (
-                  <div className="mt-3">
-                    <NumberField dense label="Nombre de points" unit="pts" value={inputs.pointsExterior} onChange={(value) => updateInput("pointsExterior", value)} />
-                  </div>
-                )}
-              </div>
-            </Card>
           </div>
+        </section>
+
+        <section id="properties" className="scroll-mt-28 space-y-3" aria-labelledby="properties-title">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.25em] text-emerald-700">Biens / espaces à créer</p>
+            <h2 id="properties-title" className="text-2xl font-black">Liste des biens du client</h2>
+          </div>
+          <PropertiesManager
+            isClientMode={isClientMode}
+            properties={properties}
+            propertyQuotes={pricing.propertyQuotes}
+            onAddProperty={addProperty}
+            onDuplicateProperty={duplicateProperty}
+            onDeleteProperty={deleteProperty}
+            onUpdateProperty={updateProperty}
+            onTogglePropertyModule={togglePropertyModule}
+            onApplyPropertyPreset={applyPropertyPreset}
+            onApplyPresetToAll={applyPresetToAllProperties}
+            onCustomPriceChange={updatePropertyCustomPrice}
+          />
         </section>
 
         <section id="modules" className="scroll-mt-28 space-y-3" aria-labelledby="modules-title">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.25em] text-emerald-700">Composition de l’offre</p>
-            <h2 id="modules-title" className="text-2xl font-black">Services et abonnement</h2>
+            <p className="text-xs font-black uppercase tracking-[0.25em] text-emerald-700">Services globaux client</p>
+            <h2 id="modules-title" className="text-2xl font-black">Options transverses</h2>
           </div>
           <ModuleSelector
             isClientMode={isClientMode}
-            catalogModules={pricing.catalogModules}
+            showPresets={false}
+            title="Modules globaux"
+            eyebrow="Client"
+            catalogModules={pricing.globalCatalogModules}
             selectedModuleIds={selectedModuleIds}
             customModulePrices={customModulePrices}
             onToggleModule={toggleModule}
