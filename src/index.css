@@ -13,7 +13,9 @@
 body {
   margin: 0;
   min-width: 320px;
-  background: #f8fafc;
+  background:
+    radial-gradient(circle at top left, rgba(16, 185, 129, 0.16), transparent 32rem),
+    linear-gradient(180deg, #ecfdf5 0%, #f8fafc 320px, #f8fafc 100%);
 }
 
 button,
@@ -21,4 +23,56 @@ input,
 textarea,
 select {
   font: inherit;
+}
+
+header.rounded-\[22px\] {
+  border-color: rgba(15, 23, 42, 0.9) !important;
+  background:
+    radial-gradient(circle at 14% 20%, rgba(16, 185, 129, 0.32), transparent 26rem),
+    linear-gradient(135deg, #020617 0%, #0f172a 54%, #064e3b 100%) !important;
+  color: #fff !important;
+  box-shadow: 0 22px 60px rgba(15, 23, 42, 0.16) !important;
+}
+
+header.rounded-\[22px\] h1,
+header.rounded-\[22px\] p {
+  color: #fff !important;
+}
+
+header.rounded-\[22px\] p:first-child {
+  color: #6ee7b7 !important;
+}
+
+header.rounded-\[22px\] p:last-child {
+  color: #cbd5e1 !important;
+}
+
+nav.sticky {
+  border-color: rgba(15, 23, 42, 0.92) !important;
+  background: rgba(15, 23, 42, 0.96) !important;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.14) !important;
+}
+
+nav.sticky button {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #e2e8f0 !important;
+}
+
+nav.sticky button:hover {
+  background: rgba(255, 255, 255, 0.14) !important;
+  color: #fff !important;
+}
+
+nav.sticky button.border-emerald-500 {
+  border-color: #34d399 !important;
+  background: #ecfdf5 !important;
+  color: #064e3b !important;
+}
+
+section[aria-labelledby="overview-title"] > div {
+  border-color: rgba(15, 23, 42, 0.9) !important;
+  background:
+    radial-gradient(circle at 8% 18%, rgba(16, 185, 129, 0.16), transparent 24rem),
+    linear-gradient(135deg, #ffffff 0%, #f8fafc 45%, #ecfdf5 100%) !important;
 }
