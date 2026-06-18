@@ -139,9 +139,10 @@ export const WORKFLOW_MODULE_GROUPS = {
     "automation",
     "conversion-popup",
     "custom-map",
+    "ai-video",
   ],
   subscription: ["matterport-space", "hosting-maintenance", "analytics-dashboard", "monthly-updates-support"],
-  premium: ["strategic-support", "ai-video", "full-website"],
+  premium: ["strategic-support", "full-website"],
 };
 
 export const SUBSCRIPTION_MODULE_IDS = WORKFLOW_MODULE_GROUPS.subscription;
@@ -175,16 +176,16 @@ export const MODULE_CATALOG = [
   { id: "automation", label: "Système d’automatisation", category: "Application web / overlay", description: "Automatisation mail, CRM, Airtable, notification ou suivi des leads.", icon: Settings2, defaultSelected: false, setupPublic: 200, setupMinimum: 100, monthlyPublic: 0, monthlyMinimum: 0 },
   { id: "conversion-popup", label: "Pop-up", category: "Application web / overlay", description: "Pop-up de conversion pour offre, réservation, abonnement ou demande de contact.", icon: Megaphone, defaultSelected: false, setupPublic: 80, setupMinimum: 40, monthlyPublic: 0, monthlyMinimum: 0 },
   { id: "custom-map", label: "Carte personnalisée", category: "Application web / overlay", description: "Carte personnalisée pour gîtes, domaines, complexes, espaces ou parcours multi-zones.", icon: MapPinned, defaultSelected: false, setupPublic: 250, setupMinimum: 120, monthlyPublic: 0, monthlyMinimum: 0 },
+  { id: "ai-video", label: "Vidéo IA / teaser 30 secondes", category: "Application web / overlay", description: "Vidéo IA courte de 30 secondes : 250 € par vidéo, ou 100 € par vidéo avec l’abonnement Premium.", icon: Video, defaultSelected: false, setupMode: "ai-video-quantity", monthlyMode: "none" },
   { id: "hosting-maintenance", label: "Hébergement app web immersive", category: "Abonnement récurrent", description: "Mise en ligne, disponibilité, maintenance technique et hébergement de l’overlay.", icon: ShieldCheck, defaultSelected: true, recommended: true, setupPublic: 0, setupMinimum: 0, monthlyMode: "subscription-base" },
   { id: "analytics-dashboard", label: "Dashboard data comportementales", category: "Abonnement récurrent", description: "Dashboard complet : parcours, clics, zones fortes, conversions et signaux commerciaux.", icon: ChartNoAxesCombined, defaultSelected: true, setupPublic: 0, setupMinimum: 0, monthlyMode: "subscription-growth-delta" },
   { id: "monthly-updates-support", label: "Rapports mensuels + accompagnement", category: "Abonnement récurrent", description: "Rapport KPI mensuel détaillé, analyse, stratégie et support prioritaire.", icon: Headphones, defaultSelected: false, setupPublic: 0, setupMinimum: 0, monthlyMode: "subscription-premium-delta" },
   { id: "strategic-support", label: "Accompagnement stratégique", category: "Premium & accompagnement", description: "Cadrage de l’offre, angles de conversion et recommandations commerciales.", icon: Sparkles, defaultSelected: false, setupPublic: 350, setupMinimum: 180, monthlyPublic: 0, monthlyMinimum: 0 },
-  { id: "ai-video", label: "Vidéo IA / teaser", category: "Premium & accompagnement", description: "Courte vidéo de présentation issue de l’expérience immersive ou des visuels.", icon: Video, defaultSelected: false, setupPublic: 250, setupMinimum: 100, monthlyPublic: 0, monthlyMinimum: 0 },
   { id: "full-website", label: "Site web complet sur mesure", category: "Premium & accompagnement", description: "Structure SEO/GEO avancée, parcours complet, PMS ou paiement : à chiffrer au cas par cas.", icon: WandSparkles, defaultSelected: false, setupPublic: 2500, setupMinimum: 1200, monthlyPublic: 0, monthlyMinimum: 0, customPricing: true },
 ];
 
 export const PROPERTY_MODULE_IDS = [
-  "interior-capture", "matterport-space", "web-app-immersive", "exterior-capture", "hosting-maintenance", "analytics-dashboard", "monthly-updates-support", "booking-module", "seo-geo", "custom-url", "automation", "conversion-popup", "custom-map",
+  "interior-capture", "matterport-space", "web-app-immersive", "exterior-capture", "hosting-maintenance", "analytics-dashboard", "monthly-updates-support", "booking-module", "seo-geo", "custom-url", "automation", "conversion-popup", "custom-map", "ai-video",
 ];
 
 export const GLOBAL_MODULE_IDS = MODULE_CATALOG.filter((module) => !PROPERTY_MODULE_IDS.includes(module.id)).map(

@@ -30,39 +30,15 @@ function subscriptionDelta(values, fromIndex, toIndex) {
 }
 
 function resolveMonthlyPrice(module, sector) {
-  if (module.monthlyMode === "subscription-base") {
-    return {
-      public: clampNumber(sector.publicPlans[0]),
-      minimum: clampNumber(sector.minimumPlans[0]),
-    };
-  }
-
-  if (module.monthlyMode === "subscription-growth-delta") {
-    return {
-      public: subscriptionDelta(sector.publicPlans, 0, 1),
-      minimum: subscriptionDelta(sector.minimumPlans, 0, 1),
-    };
-  }
-
-  if (module.monthlyMode === "subscription-premium-delta") {
-    return {
-      public: subscriptionDelta(sector.publicPlans, 1, 2),
-      minimum: subscriptionDelta(sector.minimumPlans, 1, 2),
-    };
-  }
-
-  return {
-    public: clampNumber(module.monthlyPublic),
-    minimum: clampNumber(module.monthlyMinimum),
-  };
+  if (module.monthlyMode === "subscription-base") return { public: clampNumber(sector.publicPlans[0]), minimum: clampNumber(sector.minimumPlans[0]) };
+  if (module.monthlyMode === "subscription-growth-delta") return { public: subscriptionDelta(sector.publicPlans, 0, 1), minimum: subscriptionDelta(sector.minimumPlans, 0, 1) };
+  if (module.monthlyMode === "subscription-premium-delta") return { public: subscriptionDelta(sector.publicPlans, 1, 2), minimum: subscriptionDelta(sector.minimumPlans, 1, 2) };
+  return { public: clampNumber(module.monthlyPublic), minimum: clampNumber(module.monthlyMinimum) };
 }
 
 function applyCustomPriceOverrides(base, customPrice = {}) {
   return ["setupPublic", "setupMinimum", "monthlyPublic", "monthlyMinimum"].reduce(
-    (next, key) => ({
-      ...next,
-      [key]: customPrice[key] === undefined || customPrice[key] === "" ? next[key] : clampNumber(customPrice[key], next[key]),
-    }),
+    (next, key) => ({ ...next, [key]: customPrice[key] === undefined || customPrice[key] === "" ? next[key] : clampNumber(customPrice[key], next[key]) }),
     base,
   );
 }
@@ -99,6 +75,15 @@ function resolveModulePrice(module, context) {
       base.setupMinimum = context.points * context.unitPoint;
     }
 
+    if (module.setupMode === "ai-video-quantity") {
+      const quantity = Math.max(1, Math.ceil(clampNumber(context.videoQuantity, 1)));
+      const unitPrice = context.selectedIds.has("monthly-updates-support") ? 100 : 250;
+      base.videoQuantity = quantity;
+      base.unitVideoPrice = unitPrice;
+      base.setupPublic = quantity * unitPrice;
+      base.setupMinimum = quantity * unitPrice;
+    }
+
     const monthly = resolveMonthlyPrice(module, context.sector);
     base.monthlyPublic = monthly.public;
     base.monthlyMinimum = monthly.minimum;
@@ -123,38 +108,30 @@ export function createDefaultProperty(index = 1, overrides = {}) {
     surfaceExterior: overrides.surfaceExterior ?? 0,
     manualPoints: overrides.manualPoints ?? false,
     pointsExterior: overrides.pointsExterior ?? 0,
+    videoQuantity: overrides.videoQuantity ?? 1,
     selectedModuleIds: overrides.selectedModuleIds ?? [...DEFAULT_PROPERTY_MODULE_IDS],
     customModulePrices: overrides.customModulePrices ?? {},
   };
 }
 
 export function createPropertyFromLegacyInput(input = {}) {
-  const legacySelected = Array.isArray(input.selectedModuleIds)
-    ? input.selectedModuleIds.filter((id) => PROPERTY_MODULE_IDS.includes(id))
-    : DEFAULT_PROPERTY_MODULE_IDS;
-
+  const legacySelected = Array.isArray(input.selectedModuleIds) ? input.selectedModuleIds.filter((id) => PROPERTY_MODULE_IDS.includes(id)) : DEFAULT_PROPERTY_MODULE_IDS;
   return createDefaultProperty(1, {
     name: input.propertyName || "Bien principal",
     surfaceInterior: input.surfaceInterior ?? 420,
     surfaceExterior: input.surfaceExterior ?? 1200,
     manualPoints: input.manualPoints ?? false,
     pointsExterior: input.pointsExterior ?? 12,
+    videoQuantity: input.videoQuantity ?? 1,
     selectedModuleIds: legacySelected,
   });
 }
 
 export function normalizeProperties(input = {}) {
-  const source =
-    Array.isArray(input.properties) && input.properties.length > 0
-      ? input.properties
-      : [createPropertyFromLegacyInput(input)];
-
+  const source = Array.isArray(input.properties) && input.properties.length > 0 ? input.properties : [createPropertyFromLegacyInput(input)];
   return source.map((property, index) => {
     const fallback = createDefaultProperty(index + 1);
-    const selectedModuleIds = Array.isArray(property.selectedModuleIds)
-      ? property.selectedModuleIds.filter((id) => PROPERTY_MODULE_IDS.includes(id))
-      : [...DEFAULT_PROPERTY_MODULE_IDS];
-
+    const selectedModuleIds = Array.isArray(property.selectedModuleIds) ? property.selectedModuleIds.filter((id) => PROPERTY_MODULE_IDS.includes(id)) : [...DEFAULT_PROPERTY_MODULE_IDS];
     return {
       ...fallback,
       ...property,
@@ -164,6 +141,7 @@ export function normalizeProperties(input = {}) {
       surfaceExterior: clampNumber(property.surfaceExterior, fallback.surfaceExterior),
       manualPoints: Boolean(property.manualPoints),
       pointsExterior: clampNumber(property.pointsExterior, fallback.pointsExterior),
+      videoQuantity: Math.max(1, Math.ceil(clampNumber(property.videoQuantity, fallback.videoQuantity))),
       selectedModuleIds,
       customModulePrices: property.customModulePrices || {},
     };
@@ -190,65 +168,41 @@ function buildPropertyQuote(property, context) {
     unitPoint,
     minTier,
     publicTier,
+    videoQuantity: property.videoQuantity || 1,
     customModulePrices: property.customModulePrices || {},
   };
 
-  const modules = MODULE_CATALOG.filter((module) => PROPERTY_MODULE_IDS.includes(module.id)).map((module) =>
-    resolveModulePrice(module, propertyContext),
-  );
+  const modules = MODULE_CATALOG.filter((module) => PROPERTY_MODULE_IDS.includes(module.id)).map((module) => resolveModulePrice(module, propertyContext));
   const selectedModules = modules.filter((module) => module.selected);
-  const lineItems = selectedModules.map((module) => ({
-    ...module,
-    id: `${property.id}:${module.id}`,
-    moduleId: module.id,
-    propertyId: property.id,
-    propertyName: property.name,
-    scope: "property",
-    quantity: 1,
-    unitSetupPublic: module.setupPublic,
-    unitSetupMinimum: module.setupMinimum,
-    unitMonthlyPublic: module.monthlyPublic,
-    unitMonthlyMinimum: module.monthlyMinimum,
-  }));
+  const lineItems = selectedModules.map((module) => {
+    const quantity = module.id === "ai-video" ? Math.max(1, module.videoQuantity || property.videoQuantity || 1) : 1;
+    return {
+      ...module,
+      id: `${property.id}:${module.id}`,
+      moduleId: module.id,
+      propertyId: property.id,
+      propertyName: property.name,
+      scope: "property",
+      quantity,
+      unitSetupPublic: module.id === "ai-video" ? module.unitVideoPrice || module.setupPublic : module.setupPublic,
+      unitSetupMinimum: module.id === "ai-video" ? module.unitVideoPrice || module.setupMinimum : module.setupMinimum,
+      unitMonthlyPublic: module.monthlyPublic,
+      unitMonthlyMinimum: module.monthlyMinimum,
+    };
+  });
   const setupPublicSubtotal = roundMoney(lineItems.reduce((sum, module) => sum + module.setupPublic, 0));
   const setupMinimumSubtotal = roundMoney(lineItems.reduce((sum, module) => sum + module.setupMinimum, 0));
   const monthlyPublicSubtotal = roundMoney(lineItems.reduce((sum, module) => sum + module.monthlyPublic, 0));
   const monthlyMinimumSubtotal = roundMoney(lineItems.reduce((sum, module) => sum + module.monthlyMinimum, 0));
 
-  return {
-    property,
-    intSurface,
-    extSurface,
-    estimatedPoints,
-    points,
-    unitPoint,
-    minTier,
-    publicTier,
-    catalogModules: modules,
-    selectedModules: lineItems,
-    setupPublicSubtotal,
-    setupMinimumSubtotal,
-    monthlyPublicSubtotal,
-    monthlyMinimumSubtotal,
-    startupTotal: roundMoney(setupPublicSubtotal + monthlyPublicSubtotal),
-  };
+  return { property, intSurface, extSurface, estimatedPoints, points, unitPoint, minTier, publicTier, catalogModules: modules, selectedModules: lineItems, setupPublicSubtotal, setupMinimumSubtotal, monthlyPublicSubtotal, monthlyMinimumSubtotal, startupTotal: roundMoney(setupPublicSubtotal + monthlyPublicSubtotal) };
 }
 
 function aggregateLineItems(lineItems) {
   const groups = new Map();
   lineItems.forEach((line) => {
     const key = `${line.scope}:${line.moduleId || line.id}`;
-    const current = groups.get(key) || {
-      ...line,
-      id: line.moduleId || line.id,
-      quantity: 0,
-      propertyNames: [],
-      setupPublic: 0,
-      setupMinimum: 0,
-      monthlyPublic: 0,
-      monthlyMinimum: 0,
-    };
-
+    const current = groups.get(key) || { ...line, id: line.moduleId || line.id, quantity: 0, propertyNames: [], setupPublic: 0, setupMinimum: 0, monthlyPublic: 0, monthlyMinimum: 0 };
     current.quantity += line.quantity || 1;
     current.propertyNames = line.propertyName ? [...current.propertyNames, line.propertyName] : current.propertyNames;
     current.setupPublic = roundMoney(current.setupPublic + line.setupPublic);
@@ -257,120 +211,52 @@ function aggregateLineItems(lineItems) {
     current.monthlyMinimum = roundMoney(current.monthlyMinimum + line.monthlyMinimum);
     groups.set(key, current);
   });
-
   return Array.from(groups.values());
 }
 
 function calculateDiscount({ setupPublicSubtotal, setupMinimumSubtotal, discountType, discountPercent, discountFixed, marginMode }) {
   const maxDiscountEuro = Math.max(0, setupPublicSubtotal - setupMinimumSubtotal);
   const maxDiscountPct = setupPublicSubtotal > 0 ? (maxDiscountEuro / setupPublicSubtotal) * 100 : 0;
-  const requestedDiscountEuro =
-    discountType === "fixed"
-      ? clampNumber(discountFixed)
-      : setupPublicSubtotal * (clampNumber(discountPercent) / 100);
-
-  const appliedDiscountEuro =
-    marginMode === "force" ? requestedDiscountEuro : Math.min(requestedDiscountEuro, maxDiscountEuro);
+  const requestedDiscountEuro = discountType === "fixed" ? clampNumber(discountFixed) : setupPublicSubtotal * (clampNumber(discountPercent) / 100);
+  const appliedDiscountEuro = marginMode === "force" ? requestedDiscountEuro : Math.min(requestedDiscountEuro, maxDiscountEuro);
   const appliedDiscountPct = setupPublicSubtotal > 0 ? (appliedDiscountEuro / setupPublicSubtotal) * 100 : 0;
-  const requestedDiscountPct =
-    discountType === "fixed"
-      ? setupPublicSubtotal > 0
-        ? (requestedDiscountEuro / setupPublicSubtotal) * 100
-        : 0
-      : clampNumber(discountPercent);
-
-  return {
-    maxDiscountEuro: roundMoney(maxDiscountEuro),
-    maxDiscountPct,
-    requestedDiscountEuro: roundMoney(requestedDiscountEuro),
-    requestedDiscountPct,
-    appliedDiscountEuro: roundMoney(appliedDiscountEuro),
-    appliedDiscountPct,
-    isCapped: marginMode !== "force" && requestedDiscountEuro > maxDiscountEuro,
-  };
+  const requestedDiscountPct = discountType === "fixed" ? (setupPublicSubtotal > 0 ? (requestedDiscountEuro / setupPublicSubtotal) * 100 : 0) : clampNumber(discountPercent);
+  return { maxDiscountEuro: roundMoney(maxDiscountEuro), maxDiscountPct, requestedDiscountEuro: roundMoney(requestedDiscountEuro), requestedDiscountPct, appliedDiscountEuro: roundMoney(appliedDiscountEuro), appliedDiscountPct, isCapped: marginMode !== "force" && requestedDiscountEuro > maxDiscountEuro };
 }
 
 function idsForSegment(segmentKey) {
-  if (segmentKey === "app") {
-    return [...WORKFLOW_MODULE_GROUPS.app, ...WORKFLOW_MODULE_GROUPS.premium];
-  }
-
+  if (segmentKey === "app") return [...WORKFLOW_MODULE_GROUPS.app, ...WORKFLOW_MODULE_GROUPS.premium];
   return WORKFLOW_MODULE_GROUPS[segmentKey] || [];
 }
 
 function sumSegment(lineItems, segmentKey) {
   const ids = idsForSegment(segmentKey);
   const items = lineItems.filter((line) => ids.includes(line.moduleId || line.id));
-
-  return {
-    key: segmentKey,
-    lineItems: items,
-    setupPublic: roundMoney(items.reduce((sum, line) => sum + line.setupPublic, 0)),
-    setupMinimum: roundMoney(items.reduce((sum, line) => sum + line.setupMinimum, 0)),
-    monthlyPublic: roundMoney(items.reduce((sum, line) => sum + line.monthlyPublic, 0)),
-    monthlyMinimum: roundMoney(items.reduce((sum, line) => sum + line.monthlyMinimum, 0)),
-  };
+  return { key: segmentKey, lineItems: items, setupPublic: roundMoney(items.reduce((sum, line) => sum + line.setupPublic, 0)), setupMinimum: roundMoney(items.reduce((sum, line) => sum + line.setupMinimum, 0)), monthlyPublic: roundMoney(items.reduce((sum, line) => sum + line.monthlyPublic, 0)), monthlyMinimum: roundMoney(items.reduce((sum, line) => sum + line.monthlyMinimum, 0)) };
 }
 
 export function calculateQuote(input = {}) {
   const sectorKey = input.sectorKey || "hotel";
   const sector = SECTORS[sectorKey] || SECTORS.hotel;
   const terms = { ...DEFAULT_COMMERCIAL_TERMS, ...input };
-  const selectedIds = new Set(
-    (Array.isArray(input.selectedModuleIds) ? input.selectedModuleIds : DEFAULT_SELECTED_MODULE_IDS).filter((id) =>
-      GLOBAL_MODULE_IDS.includes(id),
-    ),
-  );
+  const selectedIds = new Set((Array.isArray(input.selectedModuleIds) ? input.selectedModuleIds : DEFAULT_SELECTED_MODULE_IDS).filter((id) => GLOBAL_MODULE_IDS.includes(id)));
   const properties = normalizeProperties(input);
-  const customModulePrices = {
-    ...DEFAULT_CUSTOM_MODULE_PRICES,
-    ...(input.customModulePrices || {}),
-  };
-
-  const context = {
-    sector,
-    sectorKey,
-    selectedIds,
-    customModulePrices,
-  };
-
+  const customModulePrices = { ...DEFAULT_CUSTOM_MODULE_PRICES, ...(input.customModulePrices || {}) };
+  const context = { sector, sectorKey, selectedIds, customModulePrices };
   const propertyQuotes = properties.map((property) => buildPropertyQuote(property, context));
   const propertyLineItems = propertyQuotes.flatMap((propertyQuote) => propertyQuote.selectedModules);
-  const globalCatalogModules = MODULE_CATALOG.filter((module) => GLOBAL_MODULE_IDS.includes(module.id)).map((module) =>
-    resolveModulePrice(module, context),
-  );
-  const globalLineItems = globalCatalogModules
-    .filter((module) => module.selected)
-    .map((module) => ({
-      ...module,
-      moduleId: module.id,
-      scope: "global",
-      quantity: 1,
-      unitSetupPublic: module.setupPublic,
-      unitSetupMinimum: module.setupMinimum,
-      unitMonthlyPublic: module.monthlyPublic,
-      unitMonthlyMinimum: module.monthlyMinimum,
-    }));
+  const globalCatalogModules = MODULE_CATALOG.filter((module) => GLOBAL_MODULE_IDS.includes(module.id)).map((module) => resolveModulePrice(module, context));
+  const globalLineItems = globalCatalogModules.filter((module) => module.selected).map((module) => ({ ...module, moduleId: module.id, scope: "global", quantity: 1, unitSetupPublic: module.setupPublic, unitSetupMinimum: module.setupMinimum, unitMonthlyPublic: module.monthlyPublic, unitMonthlyMinimum: module.monthlyMinimum }));
   const lineItems = [...propertyLineItems, ...globalLineItems];
   const selectedModules = aggregateLineItems(lineItems);
   const catalogModules = [...propertyQuotes.flatMap((propertyQuote) => propertyQuote.catalogModules), ...globalCatalogModules];
   const setupModules = selectedModules.filter((module) => module.setupPublic > 0 || module.setupMinimum > 0);
   const recurringModules = selectedModules.filter((module) => module.monthlyPublic > 0 || module.monthlyMinimum > 0);
-
   const setupPublicSubtotal = roundMoney(lineItems.reduce((sum, module) => sum + module.setupPublic, 0));
   const setupMinimumSubtotal = roundMoney(lineItems.reduce((sum, module) => sum + module.setupMinimum, 0));
   const monthlyPublicSubtotal = roundMoney(lineItems.reduce((sum, module) => sum + module.monthlyPublic, 0));
   const monthlyMinimumSubtotal = roundMoney(lineItems.reduce((sum, module) => sum + module.monthlyMinimum, 0));
-
-  const discount = calculateDiscount({
-    setupPublicSubtotal,
-    setupMinimumSubtotal,
-    discountType: terms.discountType,
-    discountPercent: terms.discountPercent,
-    discountFixed: terms.discountFixed,
-    marginMode: terms.marginMode,
-  });
-
+  const discount = calculateDiscount({ setupPublicSubtotal, setupMinimumSubtotal, discountType: terms.discountType, discountPercent: terms.discountPercent, discountFixed: terms.discountFixed, marginMode: terms.marginMode });
   const setupFinalHT = roundMoney(setupPublicSubtotal - discount.appliedDiscountEuro);
   const monthlyFinalHT = monthlyPublicSubtotal;
   const startupTotalHT = roundMoney(setupFinalHT + monthlyFinalHT);
@@ -382,45 +268,7 @@ export function calculateQuote(input = {}) {
   const matterportSpaces = propertyLineItems.filter((module) => module.moduleId === "matterport-space").length;
   const webAppCount = propertyLineItems.filter((module) => module.moduleId === "web-app-immersive").length;
   const trackingCount = propertyLineItems.filter((module) => module.moduleId === "analytics-dashboard").length;
-  const segments = {
-    shooting: sumSegment(lineItems, "shooting"),
-    app: sumSegment(lineItems, "app"),
-    subscription: sumSegment(lineItems, "subscription"),
-  };
+  const segments = { shooting: sumSegment(lineItems, "shooting"), app: sumSegment(lineItems, "app"), subscription: sumSegment(lineItems, "subscription") };
 
-  return {
-    sectorKey,
-    sector,
-    properties,
-    propertyQuotes,
-    propertyCount,
-    virtualVisitCount,
-    matterportSpaces,
-    webAppCount,
-    trackingCount,
-    intSurface: firstProperty.intSurface,
-    extSurface: firstProperty.extSurface,
-    estimatedPoints: firstProperty.estimatedPoints,
-    points: firstProperty.points,
-    unitPoint: firstProperty.unitPoint,
-    minTier: firstProperty.minTier,
-    publicTier: firstProperty.publicTier,
-    catalogModules,
-    globalCatalogModules,
-    lineItems,
-    selectedModules,
-    setupModules,
-    recurringModules,
-    segments,
-    setupPublicSubtotal,
-    setupMinimumSubtotal,
-    monthlyPublicSubtotal,
-    monthlyMinimumSubtotal,
-    discount,
-    setupFinalHT,
-    monthlyFinalHT,
-    startupTotalHT,
-    floorDelta,
-    isBelowFloor,
-  };
+  return { sectorKey, sector, properties, propertyQuotes, propertyCount, virtualVisitCount, matterportSpaces, webAppCount, trackingCount, intSurface: firstProperty.intSurface, extSurface: firstProperty.extSurface, estimatedPoints: firstProperty.estimatedPoints, points: firstProperty.points, unitPoint: firstProperty.unitPoint, minTier: firstProperty.minTier, publicTier: firstProperty.publicTier, catalogModules, globalCatalogModules, lineItems, selectedModules, setupModules, recurringModules, segments, setupPublicSubtotal, setupMinimumSubtotal, monthlyPublicSubtotal, monthlyMinimumSubtotal, discount, setupFinalHT, monthlyFinalHT, startupTotalHT, floorDelta, isBelowFloor };
 }

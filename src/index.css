@@ -76,3 +76,22 @@ section[aria-labelledby="overview-title"] > div {
     radial-gradient(circle at 8% 18%, rgba(16, 185, 129, 0.16), transparent 24rem),
     linear-gradient(135deg, #ffffff 0%, #f8fafc 45%, #ecfdf5 100%) !important;
 }
+
+/* On garde la présentation abonnement riche dans Configuration détaillée : on masque l'ancien rappel simple en bas. */
+section[aria-labelledby="properties-title"] + div.grid.gap-3 {
+  display: none !important;
+}
+
+/* Les options premium globales sont retirées : la vidéo IA est maintenant dans les options de l'app web. */
+section[aria-labelledby="modules-title"] {
+  display: none !important;
+}
+
+/* Devis final : conditions commerciales en pleine largeur, puis décomposition en dessous. */
+section[aria-labelledby="control-title"] > div.grid {
+  display: block !important;
+}
+
+section[aria-labelledby="control-title"] > div.grid > * + * {
+  margin-top: 1rem !important;
+}
