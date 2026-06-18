@@ -27,6 +27,7 @@ import {
   PLAN_PRESETS,
   SECTORS,
   SUBSCRIPTION_MODULE_IDS,
+  WORKFLOW_MODULE_GROUPS,
 } from "./data/pricingConfig.js";
 import {
   createPlainTextSummary,
@@ -57,6 +58,43 @@ const DEFAULT_INPUTS = {
   pointsExterior: 12,
 };
 
+const WORKFLOW_STEPS = [
+  {
+    id: "shooting",
+    eyebrow: "01",
+    label: "Shooting",
+    title: "Prix du shooting",
+    description: "On isole la captation : surface intérieure, points extérieurs, prix public et prix minimum.",
+    icon: MapPinned,
+  },
+  {
+    id: "app",
+    eyebrow: "02",
+    label: "App web",
+    title: "App web / overlay",
+    description: "On chiffre l’interface immersive seule ou au-dessus d’une visite Matterport déjà existante.",
+    icon: Sparkles,
+  },
+  {
+    id: "subscription",
+    eyebrow: "03",
+    label: "Abonnement",
+    title: "Abonnement mensuel",
+    description: "On présente clairement l’hébergement, Matterport, les statistiques, le support et les mises à jour.",
+    icon: Euro,
+  },
+  {
+    id: "quote",
+    eyebrow: "04",
+    label: "Devis final",
+    title: "Synthèse du devis",
+    description: "On retrouve le total de démarrage, le mensuel, la marge interne et les exports.",
+    icon: ClipboardList,
+  },
+];
+
+const EDITOR_STEPS = ["shooting", "app", "subscription"];
+
 function cloneCustomPrices(value = DEFAULT_CUSTOM_MODULE_PRICES) {
   return JSON.parse(JSON.stringify(value));
 }
@@ -86,6 +124,15 @@ function buildDefaultQuoteName(meta, pricing) {
   return `Devis Prodecta - ${target}`;
 }
 
+function mergeScopedModules(currentIds = [], moduleIds = [], scope = "full") {
+  if (scope === "full" || !WORKFLOW_MODULE_GROUPS[scope]) {
+    return [...new Set(moduleIds)];
+  }
+
+  const scopedIds = WORKFLOW_MODULE_GROUPS[scope];
+  return [...new Set([...currentIds.filter((id) => !scopedIds.includes(id)), ...moduleIds])];
+}
+
 function serializePricing(pricing) {
   return {
     sectorKey: pricing.sectorKey,
@@ -100,6 +147,20 @@ function serializePricing(pricing) {
     setupModules: pricing.setupModules.map(({ icon, ...module }) => module),
     recurringModules: pricing.recurringModules.map(({ icon, ...module }) => module),
     lineItems: pricing.lineItems.map(({ icon, ...module }) => module),
+    segments: {
+      shooting: {
+        ...pricing.segments.shooting,
+        lineItems: pricing.segments.shooting.lineItems.map(({ icon, ...module }) => module),
+      },
+      app: {
+        ...pricing.segments.app,
+        lineItems: pricing.segments.app.lineItems.map(({ icon, ...module }) => module),
+      },
+      subscription: {
+        ...pricing.segments.subscription,
+        lineItems: pricing.segments.subscription.lineItems.map(({ icon, ...module }) => module),
+      },
+    },
     properties: pricing.properties,
     propertyQuotes: pricing.propertyQuotes.map((propertyQuote) => ({
       ...propertyQuote,
@@ -124,6 +185,39 @@ function serializePricing(pricing) {
   };
 }
 
+function SegmentTile({ label, value, detail, tone = "slate" }) {
+  const toneClass = tone === "emerald" ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-slate-200 bg-white text-slate-900";
+
+  return (
+    <div className={`rounded-2xl border p-4 shadow-sm ${toneClass}`}>
+      <p className="text-xs font-black uppercase tracking-wide opacity-70">{label}</p>
+      <p className="mt-1 text-2xl font-black tabular-nums">{value}</p>
+      <p className="mt-1 text-xs font-bold opacity-70">{detail}</p>
+    </div>
+  );
+}
+
+function SubscriptionPlanCards({ sector }) {
+  const plans = [
+    { name: "Essentiel", detail: "Hébergement + maintenance", price: sector.publicPlans[0] },
+    { name: "Croissance", detail: "Essentiel + dashboard analytics", price: sector.publicPlans[1] },
+    { name: "Premium", detail: "Analytics + support + mises à jour", price: sector.publicPlans[2] },
+  ];
+
+  return (
+    <div className="grid gap-3 md:grid-cols-3">
+      {plans.map((plan) => (
+        <Card key={plan.name} className="rounded-2xl p-4 shadow-sm">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Abonnement</p>
+          <h3 className="mt-1 text-lg font-black">{plan.name}</h3>
+          <p className="mt-1 text-sm font-semibold text-slate-500">{plan.detail}</p>
+          <p className="mt-4 text-2xl font-black tabular-nums text-slate-950">{eur(plan.price, " €/mois")}</p>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
 function App() {
   const [quoteMeta, setQuoteMeta] = useState(DEFAULT_QUOTE_META);
   const [inputs, setInputs] = useState(DEFAULT_INPUTS);
@@ -135,6 +229,7 @@ function App() {
   const [currentQuoteId, setCurrentQuoteId] = useState(null);
   const [savedAt, setSavedAt] = useState(null);
   const [presentationMode, setPresentationMode] = useState("internal");
+  const [activeStep, setActiveStep] = useState("shooting");
 
   useEffect(() => {
     setQuotes(loadQuotes());
@@ -155,6 +250,8 @@ function App() {
   const sector = pricing.sector;
   const SectorIcon = sector.icon;
   const isClientMode = presentationMode === "client";
+  const activeStepMeta = WORKFLOW_STEPS.find((step) => step.id === activeStep) || WORKFLOW_STEPS[0];
+  const isEditorStep = EDITOR_STEPS.includes(activeStep);
 
   const quoteSnapshot = useMemo(() => {
     const existing = currentQuoteId ? quotes.find((quote) => quote.id === currentQuoteId) : null;
@@ -245,17 +342,24 @@ function App() {
     setSavedAt(null);
   };
 
-  const applyPropertyPreset = (propertyId, moduleIds) => {
+  const applyPropertyPreset = (propertyId, moduleIds, scope = "full") => {
     setProperties((previous) =>
       previous.map((property) =>
-        property.id === propertyId ? { ...property, selectedModuleIds: [...moduleIds] } : property,
+        property.id === propertyId
+          ? { ...property, selectedModuleIds: mergeScopedModules(property.selectedModuleIds, moduleIds, scope) }
+          : property,
       ),
     );
     setSavedAt(null);
   };
 
-  const applyPresetToAllProperties = (moduleIds) => {
-    setProperties((previous) => previous.map((property) => ({ ...property, selectedModuleIds: [...moduleIds] })));
+  const applyPresetToAllProperties = (moduleIds, scope = "full") => {
+    setProperties((previous) =>
+      previous.map((property) => ({
+        ...property,
+        selectedModuleIds: mergeScopedModules(property.selectedModuleIds, moduleIds, scope),
+      })),
+    );
     setSavedAt(null);
   };
 
@@ -314,6 +418,7 @@ function App() {
     setSelectedModuleIds(DEFAULT_SELECTED_MODULE_IDS);
     setCustomModulePrices(cloneCustomPrices());
     setCurrentQuoteId(null);
+    setActiveStep("shooting");
     setSavedAt(null);
   };
 
@@ -390,10 +495,9 @@ function App() {
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <div className="mx-auto max-w-[1720px] space-y-5 p-3 lg:p-5">
         <motion.header
-          id="overview"
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="scroll-mt-28 rounded-[22px] border border-slate-200 bg-white p-4 shadow-sm"
+          className="rounded-[22px] border border-slate-200 bg-white p-4 shadow-sm"
         >
           <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
             <div className="flex min-w-0 items-center gap-3">
@@ -404,7 +508,7 @@ function App() {
                 <p className="text-xs font-black uppercase tracking-[0.28em] text-emerald-700">Prodecta simulateur</p>
                 <h1 className="text-3xl font-black tracking-tight md:text-4xl">Simulateur de devis</h1>
                 <p className="mt-1 max-w-3xl text-sm font-medium text-slate-500">
-                  Une lecture en sections, pensée pour travailler en interne ou présenter l’offre en rendez-vous.
+                  Une lecture en 3 blocs : shooting, app web, abonnement. Pensé pour présenter proprement l’offre en rendez-vous.
                 </p>
               </div>
             </div>
@@ -448,35 +552,40 @@ function App() {
           </div>
         </motion.header>
 
-        <nav className="sticky top-2 z-20 rounded-[20px] border border-slate-200 bg-white/95 p-2 shadow-sm backdrop-blur">
-          <div className="flex flex-wrap items-center gap-2">
-            {[
-              ["#overview", "Vue d’ensemble"],
-              ["#settings", "Paramètres"],
-              ["#properties", "Biens"],
-              ["#modules", "Services globaux"],
-              ...(!isClientMode ? [["#control", "Contrôle"]] : []),
-              ["#quote", "Devis"],
-            ].map(([href, label]) => (
-              <a
-                key={href}
-                href={href}
-                className="rounded-2xl px-3 py-2 text-sm font-black text-slate-500 transition hover:bg-emerald-50 hover:text-emerald-700"
-              >
-                {label}
-              </a>
-            ))}
-            <span className={`ml-auto rounded-2xl px-3 py-2 text-xs font-black uppercase tracking-wide ${isClientMode ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
-              {isClientMode ? "Vue rendez-vous" : "Vue équipe"}
-            </span>
+        <nav className="sticky top-2 z-20 rounded-[22px] border border-slate-200 bg-white/95 p-2 shadow-sm backdrop-blur">
+          <div className="grid gap-2 md:grid-cols-4">
+            {WORKFLOW_STEPS.map((step) => {
+              const Icon = step.icon;
+              const active = activeStep === step.id;
+              return (
+                <button
+                  key={step.id}
+                  type="button"
+                  onClick={() => setActiveStep(step.id)}
+                  className={`flex items-center gap-3 rounded-2xl border px-3 py-3 text-left transition ${
+                    active
+                      ? "border-emerald-500 bg-emerald-50 text-emerald-900 shadow-sm"
+                      : "border-transparent bg-white text-slate-500 hover:border-slate-200 hover:bg-slate-50 hover:text-slate-900"
+                  }`}
+                >
+                  <span className={`rounded-xl p-2 ${active ? "bg-emerald-700 text-white" : "bg-slate-100 text-slate-400"}`}>
+                    <Icon size={17} />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-[10px] font-black uppercase tracking-[0.18em] opacity-60">{step.eyebrow}</span>
+                    <span className="block truncate text-sm font-black">{step.label}</span>
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </nav>
 
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <StatCard compact icon={Layers3} label="Biens" value={String(pricing.propertyCount)} detail={`${pricing.virtualVisitCount} visites`} />
-          <StatCard compact icon={MapPinned} label="Matterport" value={String(pricing.matterportSpaces)} detail={eur(pricing.matterportSpaces * 10, " €/mois")} />
-          <StatCard compact icon={Sparkles} label="Apps web" value={String(pricing.webAppCount)} detail={`${pricing.trackingCount} tracking`} tone="slate" />
-          <StatCard compact icon={Euro} label="Création" value={eur(pricing.setupFinalHT)} detail={isClientMode ? "Frais de création" : `Base ${eur(pricing.setupPublicSubtotal)}`} />
+          <StatCard compact icon={MapPinned} label="Shooting" value={eur(pricing.segments.shooting.setupPublic)} detail={`${pricing.points} pts ext. affichés`} />
+          <StatCard compact icon={Sparkles} label="App web" value={eur(pricing.segments.app.setupPublic)} detail={`${pricing.webAppCount} overlay`} tone="slate" />
+          <StatCard compact icon={Euro} label="Abonnement" value={eur(pricing.segments.subscription.monthlyPublic, " €/mois")} detail={`${pricing.trackingCount} dashboard`} />
           {isClientMode ? (
             <StatCard compact icon={Calculator} label="Démarrage" value={eur(pricing.startupTotalHT)} detail={eur(pricing.monthlyFinalHT, " €/mois")} tone="emerald" />
           ) : (
@@ -484,31 +593,22 @@ function App() {
           )}
         </section>
 
-        <section className="scroll-mt-28" aria-labelledby="overview-title">
+        <section aria-labelledby="overview-title">
           <Card className="overflow-hidden rounded-[22px] border-slate-200 bg-white p-0 shadow-sm">
             <div className="border-t-4 border-emerald-700 p-5 lg:p-6">
               <div className="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(340px,0.8fr)] lg:items-center">
                 <div>
-                  <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Vue d’ensemble</p>
+                  <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">{activeStepMeta.eyebrow} / {activeStepMeta.label}</p>
                   <h2 id="overview-title" className="mt-2 text-3xl font-black tracking-tight md:text-4xl">
-                    Offre {sector.label}
+                    {activeStepMeta.title}
                   </h2>
                   <p className="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-slate-500">
-                    Une proposition détaillée par bien, avec création, mensuel et total de démarrage.
+                    {activeStepMeta.description}
                   </p>
                   <div className="mt-5 grid gap-3 md:grid-cols-3">
-                    <div className="border-l border-slate-200 pl-4">
-                      <p className="text-xs font-black uppercase tracking-wide text-slate-400">Biens</p>
-                      <p className="mt-1 text-lg font-black">{pricing.propertyCount} biens détaillés</p>
-                    </div>
-                    <div className="border-l border-slate-200 pl-4">
-                      <p className="text-xs font-black uppercase tracking-wide text-slate-400">Production</p>
-                      <p className="mt-1 text-lg font-black">{pricing.virtualVisitCount} visites · {pricing.matterportSpaces} Matterport</p>
-                    </div>
-                    <div className="border-l border-slate-200 pl-4">
-                      <p className="text-xs font-black uppercase tracking-wide text-slate-400">Services</p>
-                      <p className="mt-1 text-lg font-black">{pricing.webAppCount} apps · {pricing.trackingCount} tracking</p>
-                    </div>
+                    <SegmentTile label="Shooting" value={eur(pricing.segments.shooting.setupPublic)} detail="Captation + extérieurs" />
+                    <SegmentTile label="App web" value={eur(pricing.segments.app.setupPublic)} detail="Overlay + modules conversion" />
+                    <SegmentTile label="Mensuel" value={eur(pricing.segments.subscription.monthlyPublic, " €/mois")} detail="Hébergement, stats, support" />
                   </div>
                 </div>
 
@@ -540,101 +640,110 @@ function App() {
           </Card>
         </section>
 
-        <section id="settings" className="scroll-mt-28 space-y-3" aria-labelledby="settings-title">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.25em] text-emerald-700">Paramètres du projet</p>
-            <h2 id="settings-title" className="text-2xl font-black">Réglages de l’offre</h2>
-          </div>
-          <div className="grid gap-3 xl:grid-cols-[minmax(320px,0.9fr)_minmax(320px,1fr)]">
-            <QuoteForm
-              compact
+        {activeStep === "shooting" && (
+          <section className="space-y-3" aria-labelledby="settings-title">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.25em] text-emerald-700">Paramètres du projet</p>
+              <h2 id="settings-title" className="text-2xl font-black">Réglages de base</h2>
+            </div>
+            <div className="grid gap-3 xl:grid-cols-[minmax(320px,0.9fr)_minmax(320px,1fr)]">
+              <QuoteForm
+                compact
+                isClientMode={isClientMode}
+                quoteMeta={quoteMeta}
+                onChange={(nextMeta) => {
+                  setQuoteMeta(nextMeta);
+                  setSavedAt(null);
+                }}
+              />
+
+              <Card className="rounded-2xl p-4 shadow-sm">
+                <div className="mb-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Secteur</p>
+                    <h2 className="text-base font-black">Établissement</h2>
+                  </div>
+                  <div className="rounded-2xl bg-emerald-700 p-2.5 text-white">
+                    <SectorIcon size={18} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-2">
+                  {Object.entries(SECTORS).map(([key, item]) => {
+                    const Icon = item.icon;
+                    const active = key === inputs.sectorKey;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => updateInput("sectorKey", key)}
+                        className={`flex min-h-[44px] items-center gap-2 rounded-2xl border px-3 py-2 text-left transition ${
+                          active
+                            ? "border-emerald-500 bg-emerald-50 shadow-sm"
+                            : "border-slate-200 bg-white hover:border-emerald-200 hover:bg-emerald-50/40"
+                        }`}
+                      >
+                        <span className={active ? "text-emerald-700" : "text-slate-400"}>
+                          <Icon size={15} />
+                        </span>
+                        <span className="min-w-0 truncate text-xs font-black">{item.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-3 rounded-2xl bg-slate-50 p-2.5 text-xs font-semibold leading-relaxed text-slate-500">{sector.note}</p>
+              </Card>
+            </div>
+          </section>
+        )}
+
+        {isEditorStep && (
+          <section className="space-y-3" aria-labelledby="properties-title">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.25em] text-emerald-700">Configuration détaillée</p>
+              <h2 id="properties-title" className="text-2xl font-black">{activeStepMeta.title}</h2>
+            </div>
+            <PropertiesManager
               isClientMode={isClientMode}
-              quoteMeta={quoteMeta}
-              onChange={(nextMeta) => {
-                setQuoteMeta(nextMeta);
-                setSavedAt(null);
-              }}
+              mode={activeStep}
+              properties={properties}
+              propertyQuotes={pricing.propertyQuotes}
+              onAddProperty={addProperty}
+              onDuplicateProperty={duplicateProperty}
+              onDeleteProperty={deleteProperty}
+              onUpdateProperty={updateProperty}
+              onTogglePropertyModule={togglePropertyModule}
+              onApplyPropertyPreset={applyPropertyPreset}
+              onApplyPresetToAll={applyPresetToAllProperties}
+              onCustomPriceChange={updatePropertyCustomPrice}
             />
+          </section>
+        )}
 
-            <Card className="rounded-2xl p-4 shadow-sm">
-              <div className="mb-3 flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Secteur</p>
-                  <h2 className="text-base font-black">Établissement</h2>
-                </div>
-                <div className="rounded-2xl bg-emerald-700 p-2.5 text-white">
-                  <SectorIcon size={18} />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-2">
-                {Object.entries(SECTORS).map(([key, item]) => {
-                  const Icon = item.icon;
-                  const active = key === inputs.sectorKey;
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => updateInput("sectorKey", key)}
-                      className={`flex min-h-[44px] items-center gap-2 rounded-2xl border px-3 py-2 text-left transition ${
-                        active
-                          ? "border-emerald-500 bg-emerald-50 shadow-sm"
-                          : "border-slate-200 bg-white hover:border-emerald-200 hover:bg-emerald-50/40"
-                      }`}
-                    >
-                      <span className={active ? "text-emerald-700" : "text-slate-400"}>
-                        <Icon size={15} />
-                      </span>
-                      <span className="min-w-0 truncate text-xs font-black">{item.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-              <p className="mt-3 rounded-2xl bg-slate-50 p-2.5 text-xs font-semibold leading-relaxed text-slate-500">{sector.note}</p>
-            </Card>
-          </div>
-        </section>
+        {activeStep === "subscription" && <SubscriptionPlanCards sector={sector} />}
 
-        <section id="properties" className="scroll-mt-28 space-y-3" aria-labelledby="properties-title">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.25em] text-emerald-700">Biens / espaces à créer</p>
-            <h2 id="properties-title" className="text-2xl font-black">Liste des biens du client</h2>
-          </div>
-          <PropertiesManager
-            isClientMode={isClientMode}
-            properties={properties}
-            propertyQuotes={pricing.propertyQuotes}
-            onAddProperty={addProperty}
-            onDuplicateProperty={duplicateProperty}
-            onDeleteProperty={deleteProperty}
-            onUpdateProperty={updateProperty}
-            onTogglePropertyModule={togglePropertyModule}
-            onApplyPropertyPreset={applyPropertyPreset}
-            onApplyPresetToAll={applyPresetToAllProperties}
-            onCustomPriceChange={updatePropertyCustomPrice}
-          />
-        </section>
+        {activeStep === "app" && (
+          <section className="space-y-3" aria-labelledby="modules-title">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.25em] text-emerald-700">Options complémentaires</p>
+              <h2 id="modules-title" className="text-2xl font-black">Premium & cas particuliers</h2>
+            </div>
+            <ModuleSelector
+              isClientMode={isClientMode}
+              showPresets={false}
+              title="Modules hors bien"
+              eyebrow="Compléments"
+              catalogModules={pricing.globalCatalogModules}
+              selectedModuleIds={selectedModuleIds}
+              customModulePrices={customModulePrices}
+              onToggleModule={toggleModule}
+              onCustomPriceChange={updateCustomPrice}
+              onApplyPreset={applyPreset}
+            />
+          </section>
+        )}
 
-        <section id="modules" className="scroll-mt-28 space-y-3" aria-labelledby="modules-title">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.25em] text-emerald-700">Services globaux client</p>
-            <h2 id="modules-title" className="text-2xl font-black">Options transverses</h2>
-          </div>
-          <ModuleSelector
-            isClientMode={isClientMode}
-            showPresets={false}
-            title="Modules globaux"
-            eyebrow="Client"
-            catalogModules={pricing.globalCatalogModules}
-            selectedModuleIds={selectedModuleIds}
-            customModulePrices={customModulePrices}
-            onToggleModule={toggleModule}
-            onCustomPriceChange={updateCustomPrice}
-            onApplyPreset={applyPreset}
-          />
-        </section>
-
-        {!isClientMode && (
-          <section id="control" className="scroll-mt-28 space-y-3" aria-labelledby="control-title">
+        {activeStep === "quote" && !isClientMode && (
+          <section className="space-y-3" aria-labelledby="control-title">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.25em] text-emerald-700">Détail & contrôle interne</p>
               <h2 id="control-title" className="text-2xl font-black">Pilotage commercial</h2>
@@ -646,46 +755,48 @@ function App() {
           </section>
         )}
 
-        <section id="quote" className="scroll-mt-28 space-y-3 pb-8" aria-labelledby="quote-title">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.25em] text-emerald-700">Devis & exports</p>
-            <h2 id="quote-title" className="text-2xl font-black">Sauvegarder et présenter</h2>
-          </div>
-          <div className="grid gap-3 xl:grid-cols-[minmax(360px,0.75fr)_minmax(0,1.25fr)]">
-            <div className="space-y-3">
-              <QuoteSummary
-                compact
-                isClientMode={isClientMode}
-                quote={quoteSnapshot}
-                pricing={pricing}
-                currentQuoteId={currentQuoteId}
-                onSave={saveQuote}
-                onCopy={copySummary}
-                onExportPdf={() => exportQuotePdf(quoteSnapshot, { clientMode: isClientMode })}
-                onExportJson={() => exportQuoteJson(quoteSnapshot)}
-                onExportCsv={() => exportQuoteCsv(quoteSnapshot)}
-              />
-              {savedAt && (
-                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-700">
-                  Devis sauvegardé.
-                </div>
-              )}
+        {activeStep === "quote" && (
+          <section className="space-y-3 pb-8" aria-labelledby="quote-title">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.25em] text-emerald-700">Devis & exports</p>
+              <h2 id="quote-title" className="text-2xl font-black">Sauvegarder et présenter</h2>
             </div>
-            <div className="space-y-3">
-              <QuoteLibrary compact quotes={quotes} currentQuoteId={currentQuoteId} onOpen={openQuote} onDelete={deleteQuote} />
-              {!isClientMode && (
-                <Card className="rounded-2xl p-4 shadow-sm">
-                  <div className="flex gap-3">
-                    <MapPinned className="mt-1 shrink-0 text-emerald-700" size={18} />
-                    <p className="text-xs font-semibold leading-relaxed text-slate-500">
-                      Export JSON/CSV prêt pour une ressaisie Qonto ou une future API, sans intégration automatique.
-                    </p>
+            <div className="grid gap-3 xl:grid-cols-[minmax(360px,0.75fr)_minmax(0,1.25fr)]">
+              <div className="space-y-3">
+                <QuoteSummary
+                  compact
+                  isClientMode={isClientMode}
+                  quote={quoteSnapshot}
+                  pricing={pricing}
+                  currentQuoteId={currentQuoteId}
+                  onSave={saveQuote}
+                  onCopy={copySummary}
+                  onExportPdf={() => exportQuotePdf(quoteSnapshot, { clientMode: isClientMode })}
+                  onExportJson={() => exportQuoteJson(quoteSnapshot)}
+                  onExportCsv={() => exportQuoteCsv(quoteSnapshot)}
+                />
+                {savedAt && (
+                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-700">
+                    Devis sauvegardé.
                   </div>
-                </Card>
-              )}
+                )}
+              </div>
+              <div className="space-y-3">
+                <QuoteLibrary compact quotes={quotes} currentQuoteId={currentQuoteId} onOpen={openQuote} onDelete={deleteQuote} />
+                {!isClientMode && (
+                  <Card className="rounded-2xl p-4 shadow-sm">
+                    <div className="flex gap-3">
+                      <MapPinned className="mt-1 shrink-0 text-emerald-700" size={18} />
+                      <p className="text-xs font-semibold leading-relaxed text-slate-500">
+                        Export JSON/CSV prêt pour une ressaisie Qonto ou une future API, sans intégration automatique.
+                      </p>
+                    </div>
+                  </Card>
+                )}
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
       </div>
     </div>
   );
