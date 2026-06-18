@@ -32,6 +32,7 @@ export function buildQontoReadyPayload(quote) {
     monthly_total: roundMoney(module.monthlyPublic),
     vat_rate: 0,
   }));
+
   return {
     source: "prodecta-simulator",
     generatedAt: new Date().toISOString(),
@@ -86,6 +87,7 @@ function footer(doc, page, width, height) {
   doc.setFontSize(8);
   doc.setTextColor(100, 116, 139);
   doc.text("Prodecta — Solutions digitales immersives", 42, height - 24);
+  doc.text("TVA non applicable, article 293 B du CGI", width / 2, height - 24, { align: "center" });
   doc.text(String(page.number), width - 42, height - 24, { align: "right" });
 }
 
@@ -174,8 +176,6 @@ export async function exportQuotePdf(quote, options = {}) {
 
   doc.setFillColor(2, 6, 23);
   doc.roundedRect(28, 28, page.width - 56, 118, 18, 18, "F");
-  doc.setFillColor(6, 78, 59);
-  doc.roundedRect(page.width - 185, 28, 157, 118, 18, 18, "F");
   doc.setFont("helvetica", "bold");
   doc.setTextColor(110, 231, 183);
   doc.setFontSize(9);
@@ -187,13 +187,12 @@ export async function exportQuotePdf(quote, options = {}) {
   doc.setFontSize(10);
   doc.setTextColor(203, 213, 225);
   doc.text("Solutions digitales immersives pour établissements physiques", margin, y + 66);
+  doc.setFillColor(255, 255, 255);
+  doc.roundedRect(right - 100, y + 4, 100, 36, 10, 10, "F");
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
-  doc.setTextColor(255, 255, 255);
-  doc.text(formatDate(quote.createdAt), right - 18, y + 22, { align: "right" });
-  doc.setFontSize(8);
-  doc.setTextColor(187, 247, 208);
-  doc.text("TVA non applicable, art. 293 B CGI", right - 18, y + 42, { align: "right" });
+  doc.setTextColor(15, 23, 42);
+  doc.text(formatDate(quote.createdAt), right - 18, y + 27, { align: "right" });
   y = 174;
 
   card(doc, margin, y, right - margin, 88, [255, 255, 255]);
