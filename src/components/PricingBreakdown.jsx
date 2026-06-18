@@ -2,50 +2,96 @@ import { Info } from "lucide-react";
 import { eur, pct } from "../lib/formatters.js";
 import { Card } from "./ui.jsx";
 
-export function PricingBreakdown({ pricing, compact = false }) {
+const SEGMENTS = [
+  {
+    key: "shooting",
+    label: "01. Shooting",
+    detail: "Captation intérieure, points de vue extérieurs et production de la visite.",
+  },
+  {
+    key: "app",
+    label: "02. App web / overlay",
+    detail: "Création de l’interface immersive et modules de conversion.",
+  },
+  {
+    key: "subscription",
+    label: "03. Abonnement",
+    detail: "Hébergement, Matterport, analytics, support et mises à jour.",
+  },
+];
+
+function SegmentTable({ pricing, segment }) {
+  const data = pricing.segments?.[segment.key] || { lineItems: [], setupPublic: 0, monthlyPublic: 0 };
+
   return (
-    <div className={`grid gap-4 ${compact ? "2xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]" : "2xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]"}`}>
-      <Card className={compact ? "rounded-2xl p-4 shadow-sm" : ""}>
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className={compact ? "text-lg font-black" : "text-xl font-black"}>Décomposition des services</h2>
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-500">{pricing.propertyCount} biens</span>
+    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <div className="flex flex-col justify-between gap-2 border-b border-slate-100 bg-slate-50 px-4 py-3 md:flex-row md:items-center">
+        <div>
+          <h3 className="text-sm font-black text-slate-950">{segment.label}</h3>
+          <p className="mt-0.5 text-xs font-semibold text-slate-500">{segment.detail}</p>
         </div>
-        <div className="overflow-x-auto overflow-y-hidden rounded-2xl border border-slate-200">
-          <table className="w-full min-w-[860px] text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-400">
+        <div className="flex gap-2 text-right">
+          <div className="rounded-2xl bg-white px-3 py-2 shadow-sm">
+            <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Création</p>
+            <p className="text-sm font-black tabular-nums text-slate-950">{eur(data.setupPublic)}</p>
+          </div>
+          <div className="rounded-2xl bg-white px-3 py-2 shadow-sm">
+            <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Mensuel</p>
+            <p className="text-sm font-black tabular-nums text-slate-950">{eur(data.monthlyPublic, " €/mois")}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto overflow-y-hidden">
+        <table className="w-full min-w-[760px] text-left text-sm">
+          <thead className="bg-white text-xs uppercase tracking-wide text-slate-400">
+            <tr>
+              <th className="px-4 py-3">Service</th>
+              <th className="px-4 py-3">Bien</th>
+              <th className="px-4 py-3 text-right">Qté</th>
+              <th className="px-4 py-3 text-right">Création</th>
+              <th className="px-4 py-3 text-right">Mensuel</th>
+              <th className="px-4 py-3 text-right">Plancher</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 bg-white">
+            {data.lineItems.length === 0 ? (
               <tr>
-                <th className="px-4 py-3">Service</th>
-                <th className="px-4 py-3">Bien</th>
-                <th className="px-4 py-3">Catégorie</th>
-                <th className="px-4 py-3 text-right">Qté</th>
-                <th className="px-4 py-3 text-right">Création</th>
-                <th className="px-4 py-3 text-right">Mensuel</th>
-                <th className="px-4 py-3 text-right">Plancher création</th>
+                <td className="px-4 py-5 text-sm font-bold text-slate-400" colSpan={6}>
+                  Aucun module sélectionné dans cette section.
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 bg-white">
-              {pricing.lineItems.map((module) => (
+            ) : (
+              data.lineItems.map((module) => (
                 <tr key={module.id}>
                   <td className="px-4 py-3 font-bold text-slate-700">{module.label}</td>
                   <td className="px-4 py-3 text-xs font-bold text-slate-400">{module.propertyName || "Client"}</td>
-                  <td className="px-4 py-3 text-xs font-bold text-slate-400">{module.category}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-right font-bold tabular-nums text-slate-700">{module.quantity || 1}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-right font-black tabular-nums">{eur(module.setupPublic)}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-right font-bold tabular-nums text-slate-700">{eur(module.monthlyPublic, " €/mois")}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-right font-bold tabular-nums text-slate-500">{eur(module.setupMinimum)}</td>
                 </tr>
-              ))}
-              <tr className="bg-slate-950 text-white">
-                <td className="px-4 py-4 font-black">Total avant remise</td>
-                <td className="px-4 py-4 text-xs font-bold text-slate-300">Client</td>
-                <td className="px-4 py-4 text-xs font-bold text-slate-300">{pricing.lineItems.length} lignes</td>
-                <td className="px-4 py-4 text-right text-xs font-bold text-slate-300">{pricing.selectedModules.reduce((sum, module) => sum + (module.quantity || 1), 0)}</td>
-                <td className="whitespace-nowrap px-4 py-4 text-right font-black tabular-nums">{eur(pricing.setupPublicSubtotal)}</td>
-                <td className="whitespace-nowrap px-4 py-4 text-right font-black tabular-nums">{eur(pricing.monthlyPublicSubtotal, " €/mois")}</td>
-                <td className="whitespace-nowrap px-4 py-4 text-right font-black tabular-nums">{eur(pricing.setupMinimumSubtotal)}</td>
-              </tr>
-            </tbody>
-          </table>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+export function PricingBreakdown({ pricing, compact = false }) {
+  return (
+    <div className={`grid gap-4 ${compact ? "2xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]" : "2xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]"}`}>
+      <Card className={compact ? "rounded-2xl p-4 shadow-sm" : ""}>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className={compact ? "text-lg font-black" : "text-xl font-black"}>Décomposition par blocs</h2>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-500">{pricing.propertyCount} biens</span>
+        </div>
+        <div className="space-y-3">
+          {SEGMENTS.map((segment) => (
+            <SegmentTable key={segment.key} pricing={pricing} segment={segment} />
+          ))}
         </div>
       </Card>
 
@@ -87,7 +133,7 @@ export function PricingBreakdown({ pricing, compact = false }) {
             <div className="flex gap-2">
               <Info className="mt-0.5 shrink-0 text-emerald-700" size={18} />
               <p>
-                Les modules dynamiques reprennent la logique historique : surface intérieure, forfait secteur et points de vue extérieurs. Les modules fixes et récurrents sont isolés pour préparer remises, packs, variations par surface et future API.
+                Le devis est maintenant séparé en trois lectures : shooting, app web / overlay et abonnement. Cela permet de présenter un prix de création clair, puis un mensuel lisible sans mélanger les postes.
               </p>
             </div>
           </div>
