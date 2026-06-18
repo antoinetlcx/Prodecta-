@@ -41,12 +41,63 @@ const MODE_MODULES = {
     ["custom-map", "Carte personnalisée"],
   ],
   subscription: [
-    ["hosting-maintenance", "Hébergement"],
-    ["matterport-space", "Espace Matterport"],
-    ["analytics-dashboard", "Dashboard analytics"],
-    ["monthly-updates-support", "Support + MAJ"],
+    ["hosting-maintenance", "Hébergement app web"],
+    ["matterport-space", "Hébergement visite virtuelle"],
+    ["analytics-dashboard", "Dashboard data"],
+    ["monthly-updates-support", "Rapports + accompagnement"],
   ],
 };
+
+const SUBSCRIPTION_PLANS = [
+  {
+    name: "Essentiel",
+    ids: ["hosting-maintenance", "matterport-space"],
+    tone: "slate",
+    hook: "La base pour garder l’expérience en ligne.",
+    included: [
+      "Hébergement de l’app web immersive",
+      "Hébergement de la visite virtuelle Matterport",
+      "Lien Prodecta accessible en ligne",
+      "Maintenance technique essentielle",
+      "Expérience consultable mobile, tablette et ordinateur",
+    ],
+    excluded: ["Dashboard comportemental avancé", "Domaine personnalisé", "Rapports mensuels"],
+  },
+  {
+    name: "Croissance",
+    ids: ["hosting-maintenance", "matterport-space", "analytics-dashboard"],
+    tone: "emerald",
+    hook: "Le meilleur plan pour piloter les performances.",
+    included: [
+      "Tout l’Essentiel",
+      "Dashboard data comportementales complet",
+      "Analyse des clics, parcours et zones d’intérêt",
+      "Suivi des conversions et signaux commerciaux",
+      "Photos 4K / contenus visuels inclus",
+      "Mises à jour régulières incluses",
+      "Re-shoot annuel du bien à -25 %",
+    ],
+    excluded: ["Domaine personnalisé", "Rapport mensuel business analyst"],
+  },
+  {
+    name: "Premium",
+    ids: ["hosting-maintenance", "matterport-space", "analytics-dashboard", "monthly-updates-support"],
+    tone: "premium",
+    hook: "Le plan conseil, data et optimisation continue.",
+    included: [
+      "Tout Croissance",
+      "Domaine personnalisé inclus",
+      "Rapport KPI mensuel ultra détaillé",
+      "Analyse par business analyst professionnel",
+      "Accompagnement stratégique conversion",
+      "Optimisation continue de l’expérience",
+      "Support prioritaire",
+      "Re-shoot annuel du bien à -50 %",
+      "Vidéo IA à tarif préférentiel : 100 € / vidéo",
+    ],
+    excluded: [],
+  },
+];
 
 function idsForMode(mode) {
   if (mode === "all") {
@@ -112,9 +163,91 @@ function moduleDetail(moduleId, propertyQuote, selected, source) {
     return `Socle obligatoire : ${eur(setup)}`;
   }
 
+  if (moduleId === "matterport-space") {
+    return "Inclus dans l’abonnement";
+  }
+
   if (monthly > 0 && setup > 0) return `${eur(setup)} · ${eur(monthly, " €/mois")}`;
   if (monthly > 0) return eur(monthly, " €/mois");
   return eur(setup);
+}
+
+function subscriptionPlanPrice(propertyQuote, plan) {
+  return plan.ids.reduce((total, moduleId) => total + (findCatalog(propertyQuote, moduleId)?.monthlyPublic || 0), 0);
+}
+
+function SubscriptionComparison({ propertyQuote, onApplyPlan }) {
+  if (!propertyQuote) return null;
+
+  return (
+    <div className="space-y-3">
+      <div className="grid gap-3 lg:grid-cols-3">
+        {SUBSCRIPTION_PLANS.map((plan) => {
+          const price = subscriptionPlanPrice(propertyQuote, plan);
+          const premium = plan.tone === "premium";
+          const growth = plan.tone === "emerald";
+          const cardClass = premium
+            ? "border-amber-300 bg-slate-950 text-white shadow-lg shadow-slate-950/15"
+            : growth
+              ? "border-emerald-500 bg-emerald-700 text-white shadow-lg shadow-emerald-950/10"
+              : "border-slate-700 bg-slate-900 text-white shadow-lg shadow-slate-950/10";
+          const priceClass = premium ? "bg-amber-400 text-slate-950" : growth ? "bg-white text-emerald-900" : "bg-white text-slate-950";
+
+          return (
+            <div key={plan.name} className={`overflow-hidden rounded-[24px] border ${cardClass}`}>
+              <div className="p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.2em] opacity-70">Abonnement</p>
+                    <h3 className="mt-1 text-2xl font-black tracking-tight">{plan.name}</h3>
+                    <p className="mt-2 min-h-[40px] text-sm font-semibold opacity-80">{plan.hook}</p>
+                  </div>
+                  {premium && (
+                    <span className="rounded-full bg-amber-400 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-slate-950">
+                      conseil
+                    </span>
+                  )}
+                </div>
+                <div className={`mt-5 inline-flex rounded-2xl px-4 py-2 text-2xl font-black tabular-nums ${priceClass}`}>
+                  {eur(price, " €/mois")}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onApplyPlan(plan.ids)}
+                  className={`mt-4 w-full rounded-2xl px-4 py-2 text-sm font-black transition ${
+                    premium ? "bg-amber-400 text-slate-950 hover:bg-amber-300" : "bg-white/15 text-white hover:bg-white/25"
+                  }`}
+                >
+                  Appliquer {plan.name}
+                </button>
+              </div>
+              <div className="border-t border-white/15 bg-black/15 p-5">
+                <p className="mb-3 text-xs font-black uppercase tracking-[0.18em] opacity-70">Inclus</p>
+                <ul className="space-y-2">
+                  {plan.included.map((item) => (
+                    <li key={item} className="flex gap-2 text-sm font-semibold leading-snug">
+                      <span className={premium ? "text-amber-300" : "text-emerald-200"}>✓</span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+                {plan.excluded.length > 0 && (
+                  <div className="mt-4 rounded-2xl bg-white/10 p-3">
+                    <p className="mb-2 text-[11px] font-black uppercase tracking-wide opacity-60">Non inclus</p>
+                    <ul className="space-y-1">
+                      {plan.excluded.map((item) => (
+                        <li key={item} className="text-xs font-semibold opacity-70">– {item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 function ModuleToggle({ label, moduleId, property, propertyQuote, onToggle }) {
@@ -260,6 +393,13 @@ export function PropertiesManager({
       </div>
 
       <div className="space-y-4 bg-slate-100 p-4">
+        {mode === "subscription" && (
+          <SubscriptionComparison
+            propertyQuote={propertyQuotes[0]}
+            onApplyPlan={(moduleIds) => onApplyPresetToAll(moduleIds, "subscription")}
+          />
+        )}
+
         {propertyQuotes.map((propertyQuote, index) => {
           const property = properties.find((item) => item.id === propertyQuote.property.id) || propertyQuote.property;
           const visibleSetup = sumVisible(propertyQuote, mode, "setupPublic");
@@ -408,9 +548,9 @@ export function PropertiesManager({
                       <p className="mt-1 text-sm font-black text-slate-950">{getSubscriptionName(property.selectedModuleIds)}</p>
                     </div>
                     <div>
-                      <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">Matterport</p>
+                      <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">Visite virtuelle</p>
                       <p className="mt-1 text-sm font-black text-slate-950">
-                        {property.selectedModuleIds.includes("matterport-space") ? "Hébergé Prodecta" : "Non inclus / client externe"}
+                        {property.selectedModuleIds.includes("matterport-space") ? "Hébergement inclus" : "Non inclus"}
                       </p>
                     </div>
                     <div>
