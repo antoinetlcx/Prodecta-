@@ -1,40 +1,172 @@
 import { Copy, Home, Plus, Trash2 } from "lucide-react";
-import { PROPERTY_PRESETS } from "../data/pricingConfig.js";
+import { PROPERTY_PRESETS, WORKFLOW_MODULE_GROUPS } from "../data/pricingConfig.js";
 import { eur } from "../lib/formatters.js";
 import { Card, NumberField, TextField, Toggle } from "./ui.jsx";
 
-const PRIMARY_MODULES = [
-  ["interior-capture", "Visite"],
-  ["matterport-space", "Matterport"],
-  ["web-app-immersive", "App web"],
-  ["analytics-dashboard", "Tracking"],
-  ["hosting-maintenance", "Hébergement"],
-];
+const MODE_COPY = {
+  shooting: {
+    eyebrow: "01 / shooting",
+    title: "Base de production",
+    description: "Surfaces, captation intérieure et points de vue extérieurs. C’est la base du prix de shooting.",
+  },
+  app: {
+    eyebrow: "02 / app web",
+    title: "Application web / overlay",
+    description: "App web immersive seule ou ajoutée au-dessus d’une visite Matterport existante.",
+  },
+  subscription: {
+    eyebrow: "03 / abonnement",
+    title: "Abonnement mensuel",
+    description: "Hébergement, Matterport, dashboard analytics, support et mises à jour.",
+  },
+  all: {
+    eyebrow: "Biens / espaces",
+    title: "Biens du client",
+    description: "Chaque bien garde sa surface, ses modules et son abonnement.",
+  },
+};
+
+const MODE_MODULES = {
+  shooting: [
+    ["interior-capture", "Shooting intérieur"],
+    ["exterior-capture", "Points extérieurs"],
+  ],
+  app: [
+    ["web-app-immersive", "App web / overlay"],
+    ["quote-contact-module", "Formulaire / devis"],
+    ["conversion-popup", "Pop-up conversion"],
+    ["site-integration", "Intégration site"],
+    ["booking-module", "Réservation"],
+    ["automation", "Automatisation"],
+  ],
+  subscription: [
+    ["hosting-maintenance", "Hébergement"],
+    ["matterport-space", "Espace Matterport"],
+    ["analytics-dashboard", "Dashboard analytics"],
+    ["monthly-updates-support", "Support + MAJ"],
+  ],
+};
+
+function idsForMode(mode) {
+  if (mode === "all") {
+    return [...WORKFLOW_MODULE_GROUPS.shooting, ...WORKFLOW_MODULE_GROUPS.app, ...WORKFLOW_MODULE_GROUPS.subscription];
+  }
+
+  return WORKFLOW_MODULE_GROUPS[mode] || [];
+}
 
 function findLine(propertyQuote, moduleId) {
   return propertyQuote.selectedModules.find((module) => module.moduleId === moduleId);
 }
 
-function moduleTotal(propertyQuote, moduleId, kind) {
-  return findLine(propertyQuote, moduleId)?.[kind] || 0;
+function findCatalog(propertyQuote, moduleId) {
+  return propertyQuote.catalogModules.find((module) => module.id === moduleId);
+}
+
+function sumVisible(propertyQuote, mode, key) {
+  const ids = idsForMode(mode);
+  return propertyQuote.selectedModules
+    .filter((module) => ids.includes(module.moduleId))
+    .reduce((sum, module) => sum + (module[key] || 0), 0);
+}
+
+function visibleSelectedCount(propertyQuote, mode) {
+  const ids = idsForMode(mode);
+  return propertyQuote.selectedModules.filter((module) => ids.includes(module.moduleId)).length;
+}
+
+function getSubscriptionName(selectedModuleIds = []) {
+  const hasHosting = selectedModuleIds.includes("hosting-maintenance");
+  const hasAnalytics = selectedModuleIds.includes("analytics-dashboard");
+  const hasSupport = selectedModuleIds.includes("monthly-updates-support");
+
+  if (hasHosting && hasAnalytics && hasSupport) return "Premium";
+  if (hasHosting && hasAnalytics) return "Croissance";
+  if (hasHosting) return "Essentiel";
+  return "Aucun abonnement";
+}
+
+function moduleDetail(moduleId, propertyQuote, selected, source) {
+  if (!selected) {
+    const setup = source?.setupPublic || 0;
+    const monthly = source?.monthlyPublic || 0;
+    const parts = [];
+    if (setup > 0) parts.push(eur(setup));
+    if (monthly > 0) parts.push(eur(monthly, " €/mois"));
+    return parts.length ? `Tarif si ajouté : ${parts.join(" · ")}` : "Non inclus";
+  }
+
+  const setup = source?.setupPublic || 0;
+  const monthly = source?.monthlyPublic || 0;
+
+  if (moduleId === "interior-capture") {
+    return `${propertyQuote.intSurface} m² × ${propertyQuote.publicTier.coeff} €/m² = ${eur(setup)}`;
+  }
+
+  if (moduleId === "exterior-capture") {
+    return `${propertyQuote.points} pts × ${eur(propertyQuote.unitPoint, " €/pt")} = ${eur(setup)}`;
+  }
+
+  if (moduleId === "web-app-immersive") {
+    return `Forfait app web : ${eur(setup)}`;
+  }
+
+  if (monthly > 0 && setup > 0) return `${eur(setup)} · ${eur(monthly, " €/mois")}`;
+  if (monthly > 0) return eur(monthly, " €/mois");
+  return eur(setup);
 }
 
 function ModuleToggle({ label, moduleId, property, propertyQuote, onToggle }) {
   const selected = property.selectedModuleIds.includes(moduleId);
-  const setup = moduleTotal(propertyQuote, moduleId, "setupPublic");
-  const monthly = moduleTotal(propertyQuote, moduleId, "monthlyPublic");
+  const line = findLine(propertyQuote, moduleId);
+  const catalog = findCatalog(propertyQuote, moduleId);
+  const source = selected ? line : catalog;
+  const Icon = source?.icon || Home;
 
   return (
     <div className={`rounded-2xl border p-3 ${selected ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-white"}`}>
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-xs font-black text-slate-800">{label}</p>
-          <p className="mt-1 text-[11px] font-bold text-slate-500">
-            {selected ? `${eur(setup)} · ${eur(monthly, " €/mois")}` : "Non inclus"}
-          </p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 gap-3">
+          <span className={`mt-0.5 rounded-xl p-2 ${selected ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-500"}`}>
+            <Icon size={15} />
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-xs font-black text-slate-800">{label}</p>
+            <p className="mt-1 text-[11px] font-bold leading-relaxed text-slate-500">
+              {moduleDetail(moduleId, propertyQuote, selected, source)}
+            </p>
+          </div>
         </div>
         <Toggle checked={selected} onChange={() => onToggle(property.id, moduleId)} label={`${selected ? "Retirer" : "Ajouter"} ${label}`} />
       </div>
+    </div>
+  );
+}
+
+function PriceOverrideField({ label, moduleId, property, propertyQuote, isClientMode, onCustomPriceChange }) {
+  const line = findLine(propertyQuote, moduleId);
+  if (!line || isClientMode) return null;
+
+  const custom = property.customModulePrices?.[moduleId] || {};
+
+  return (
+    <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 md:grid-cols-2">
+      <NumberField
+        dense
+        label={`${label} public`}
+        unit="€"
+        step={50}
+        value={custom.setupPublic ?? line.unitSetupPublic}
+        onChange={(value) => onCustomPriceChange(property.id, moduleId, "setupPublic", value)}
+      />
+      <NumberField
+        dense
+        label={`${label} minimum`}
+        unit="€"
+        step={50}
+        value={custom.setupMinimum ?? line.unitSetupMinimum}
+        onChange={(value) => onCustomPriceChange(property.id, moduleId, "setupMinimum", value)}
+      />
     </div>
   );
 }
@@ -43,6 +175,7 @@ export function PropertiesManager({
   properties,
   propertyQuotes,
   isClientMode = false,
+  mode = "all",
   onAddProperty,
   onDuplicateProperty,
   onDeleteProperty,
@@ -52,25 +185,32 @@ export function PropertiesManager({
   onApplyPresetToAll,
   onCustomPriceChange,
 }) {
+  const copy = MODE_COPY[mode] || MODE_COPY.all;
+  const moduleRows =
+    mode === "all"
+      ? [...MODE_MODULES.shooting, ...MODE_MODULES.app, ...MODE_MODULES.subscription]
+      : MODE_MODULES[mode] || MODE_MODULES.shooting;
+  const presets = PROPERTY_PRESETS.filter((preset) => preset.scope === mode || (mode === "all" && preset.scope === "full"));
+  const showSurfaceFields = mode === "shooting" || mode === "all";
+
   return (
     <Card className="overflow-hidden rounded-2xl p-0 shadow-sm">
       <div className="border-b border-slate-100 bg-white p-4">
         <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-end">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Biens / espaces</p>
-            <h2 className="text-xl font-black tracking-tight">Biens du client</h2>
-            <p className="mt-1 text-sm font-semibold text-slate-500">
-              Chaque bien garde sa surface, ses modules et son abonnement.
-            </p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">{copy.eyebrow}</p>
+            <h2 className="text-xl font-black tracking-tight">{copy.title}</h2>
+            <p className="mt-1 max-w-3xl text-sm font-semibold text-slate-500">{copy.description}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             {!isClientMode &&
-              PROPERTY_PRESETS.map((preset) => (
+              presets.map((preset) => (
                 <button
                   key={preset.name}
                   type="button"
-                  onClick={() => onApplyPresetToAll(preset.moduleIds)}
+                  onClick={() => onApplyPresetToAll(preset.moduleIds, preset.scope)}
                   className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-600 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+                  title={preset.description}
                 >
                   {preset.name} à tous
                 </button>
@@ -89,16 +229,15 @@ export function PropertiesManager({
       <div className="space-y-3 p-4">
         {propertyQuotes.map((propertyQuote, index) => {
           const property = properties.find((item) => item.id === propertyQuote.property.id) || propertyQuote.property;
-          const matterport = findLine(propertyQuote, "matterport-space");
-          const app = findLine(propertyQuote, "web-app-immersive");
-          const tracking = findLine(propertyQuote, "analytics-dashboard");
-          const visit = findLine(propertyQuote, "interior-capture");
-          const visitCustom = property.customModulePrices?.["interior-capture"] || {};
+          const visibleSetup = sumVisible(propertyQuote, mode, "setupPublic");
+          const visibleMonthly = sumVisible(propertyQuote, mode, "monthlyPublic");
+          const activeCount = visibleSelectedCount(propertyQuote, mode);
+          const displayPoints = property.manualPoints ? property.pointsExterior : propertyQuote.estimatedPoints;
 
           return (
             <details key={property.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white" open={index === 0}>
               <summary className="cursor-pointer list-none border-l-4 border-emerald-600 px-4 py-3">
-                <div className="grid gap-3 lg:grid-cols-[minmax(180px,1.1fr)_120px_120px_120px_120px_120px_120px_120px] lg:items-center">
+                <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_140px_140px_140px_110px] lg:items-center">
                   <div className="flex items-center gap-3">
                     <span className="rounded-2xl bg-emerald-50 p-2 text-emerald-700">
                       <Home size={17} />
@@ -106,22 +245,21 @@ export function PropertiesManager({
                     <div className="min-w-0">
                       <p className="truncate font-black text-slate-950">{property.name}</p>
                       <p className="text-xs font-semibold text-slate-500">
-                        {propertyQuote.intSurface} m² intérieur · {propertyQuote.points} pts ext.
+                        {mode === "subscription"
+                          ? getSubscriptionName(property.selectedModuleIds)
+                          : `${propertyQuote.intSurface} m² intérieur · ${propertyQuote.points} pts ext.`}
                       </p>
                     </div>
                   </div>
-                  <p className="text-xs font-black text-slate-500">Visite {visit ? "oui" : "non"}</p>
-                  <p className="text-xs font-black text-slate-500">Matterport {matterport ? "oui" : "non"}</p>
-                  <p className="text-xs font-black text-slate-500">App {app ? "oui" : "non"}</p>
-                  <p className="text-xs font-black text-slate-500">Tracking {tracking ? "oui" : "non"}</p>
-                  <p className="text-right text-sm font-black tabular-nums text-slate-950">{eur(propertyQuote.setupPublicSubtotal)}</p>
-                  <p className="text-right text-sm font-black tabular-nums text-slate-950">{eur(propertyQuote.monthlyPublicSubtotal, " €/mois")}</p>
+                  <p className="text-xs font-black text-slate-500">{activeCount} modules actifs</p>
+                  <p className="text-right text-sm font-black tabular-nums text-slate-950">{eur(visibleSetup)}</p>
+                  <p className="text-right text-sm font-black tabular-nums text-slate-950">{eur(visibleMonthly, " €/mois")}</p>
                   <p className="text-right text-xs font-black uppercase tracking-wide text-emerald-700">Détails</p>
                 </div>
               </summary>
 
               <div className="space-y-4 border-t border-slate-100 bg-slate-50 p-4">
-                <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_repeat(3,minmax(120px,0.6fr))_auto] lg:items-end">
+                <div className={`grid gap-3 ${showSurfaceFields ? "lg:grid-cols-[minmax(220px,1fr)_repeat(3,minmax(120px,0.6fr))_auto]" : "lg:grid-cols-[minmax(220px,1fr)_auto]"} lg:items-end`}>
                   <TextField
                     dense
                     label="Nom du bien"
@@ -129,28 +267,48 @@ export function PropertiesManager({
                     onChange={(value) => onUpdateProperty(property.id, { name: value })}
                     placeholder={`Bien ${index + 1}`}
                   />
-                  <NumberField
-                    dense
-                    label="Surface intérieure"
-                    unit="m²"
-                    value={property.surfaceInterior}
-                    onChange={(value) => onUpdateProperty(property.id, { surfaceInterior: value })}
-                  />
-                  <NumberField
-                    dense
-                    label="Surface extérieure"
-                    unit="m²"
-                    value={property.surfaceExterior}
-                    onChange={(value) => onUpdateProperty(property.id, { surfaceExterior: value })}
-                  />
-                  <NumberField
-                    dense
-                    label="Points ext."
-                    unit="pts"
-                    value={property.pointsExterior}
-                    onChange={(value) => onUpdateProperty(property.id, { pointsExterior: value, manualPoints: true })}
-                    hint={property.manualPoints ? "manuel" : `auto ${propertyQuote.estimatedPoints}`}
-                  />
+                  {showSurfaceFields && (
+                    <>
+                      <NumberField
+                        dense
+                        label="Surface intérieure"
+                        unit="m²"
+                        value={property.surfaceInterior}
+                        onChange={(value) => onUpdateProperty(property.id, { surfaceInterior: value })}
+                      />
+                      <NumberField
+                        dense
+                        label="Surface extérieure"
+                        unit="m²"
+                        value={property.surfaceExterior}
+                        onChange={(value) => onUpdateProperty(property.id, { surfaceExterior: value })}
+                      />
+                      <div className="space-y-2">
+                        <NumberField
+                          dense
+                          label="Points ext."
+                          unit="pts"
+                          value={displayPoints}
+                          onChange={(value) => onUpdateProperty(property.id, { pointsExterior: value, manualPoints: true })}
+                          hint={property.manualPoints ? "manuel" : `auto ${propertyQuote.estimatedPoints}`}
+                        />
+                        {property.manualPoints && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onUpdateProperty(property.id, {
+                                manualPoints: false,
+                                pointsExterior: propertyQuote.estimatedPoints,
+                              })
+                            }
+                            className="w-full rounded-xl border border-emerald-200 bg-white px-2 py-1 text-[11px] font-black text-emerald-700 transition hover:bg-emerald-50"
+                          >
+                            Repasser en auto
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  )}
                   <div className="flex items-center justify-end gap-2">
                     <button
                       type="button"
@@ -174,20 +332,61 @@ export function PropertiesManager({
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  {PROPERTY_PRESETS.map((preset) => (
+                  {presets.map((preset) => (
                     <button
                       key={preset.name}
                       type="button"
-                      onClick={() => onApplyPropertyPreset(property.id, preset.moduleIds)}
+                      onClick={() => onApplyPropertyPreset(property.id, preset.moduleIds, preset.scope)}
                       className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-600 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+                      title={preset.description}
                     >
                       {preset.name}
                     </button>
                   ))}
                 </div>
 
-                <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-5">
-                  {PRIMARY_MODULES.map(([moduleId, label]) => (
+                {mode === "shooting" && (
+                  <div className="grid gap-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-3 md:grid-cols-3">
+                    <div>
+                      <p className="text-[11px] font-black uppercase tracking-wide text-emerald-700">Shooting intérieur</p>
+                      <p className="mt-1 text-sm font-black text-emerald-950">
+                        {propertyQuote.intSurface} m² × {propertyQuote.publicTier.coeff} €/m²
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-black uppercase tracking-wide text-emerald-700">Points extérieurs</p>
+                      <p className="mt-1 text-sm font-black text-emerald-950">
+                        {propertyQuote.points} points × {eur(propertyQuote.unitPoint, " €/pt")}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-black uppercase tracking-wide text-emerald-700">Total shooting</p>
+                      <p className="mt-1 text-sm font-black text-emerald-950">{eur(visibleSetup)}</p>
+                    </div>
+                  </div>
+                )}
+
+                {mode === "subscription" && (
+                  <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-3 md:grid-cols-3">
+                    <div>
+                      <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">Plan actif</p>
+                      <p className="mt-1 text-sm font-black text-slate-950">{getSubscriptionName(property.selectedModuleIds)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">Matterport</p>
+                      <p className="mt-1 text-sm font-black text-slate-950">
+                        {property.selectedModuleIds.includes("matterport-space") ? "Hébergé Prodecta" : "Non inclus / client externe"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">Mensuel du bien</p>
+                      <p className="mt-1 text-sm font-black text-slate-950">{eur(visibleMonthly, " €/mois")}</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className={`grid gap-2 ${mode === "subscription" ? "md:grid-cols-2 xl:grid-cols-4" : "md:grid-cols-2 xl:grid-cols-3"}`}>
+                  {moduleRows.map(([moduleId, label]) => (
                     <ModuleToggle
                       key={moduleId}
                       label={label}
@@ -199,43 +398,40 @@ export function PropertiesManager({
                   ))}
                 </div>
 
-                {visit && (
-                  <div className={`grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 ${isClientMode ? "md:grid-cols-1" : "md:grid-cols-2"}`}>
-                    <NumberField
-                      dense
-                      label="Prix visite"
-                      unit="€"
-                      step={50}
-                      value={visitCustom.setupPublic ?? visit.unitSetupPublic}
-                      onChange={(value) => onCustomPriceChange(property.id, "interior-capture", "setupPublic", value)}
-                    />
-                    {!isClientMode && (
-                      <NumberField
-                        dense
-                        label="Prix minimum visite"
-                        unit="€"
-                        step={50}
-                        value={visitCustom.setupMinimum ?? visit.unitSetupMinimum}
-                        onChange={(value) => onCustomPriceChange(property.id, "interior-capture", "setupMinimum", value)}
+                {(mode === "shooting" || mode === "app") && (
+                  <div className="grid gap-2 xl:grid-cols-2">
+                    {mode === "shooting" && (
+                      <>
+                        <PriceOverrideField
+                          label="Shooting intérieur"
+                          moduleId="interior-capture"
+                          property={property}
+                          propertyQuote={propertyQuote}
+                          isClientMode={isClientMode}
+                          onCustomPriceChange={onCustomPriceChange}
+                        />
+                        <PriceOverrideField
+                          label="Points extérieurs"
+                          moduleId="exterior-capture"
+                          property={property}
+                          propertyQuote={propertyQuote}
+                          isClientMode={isClientMode}
+                          onCustomPriceChange={onCustomPriceChange}
+                        />
+                      </>
+                    )}
+                    {mode === "app" && (
+                      <PriceOverrideField
+                        label="App web"
+                        moduleId="web-app-immersive"
+                        property={property}
+                        propertyQuote={propertyQuote}
+                        isClientMode={isClientMode}
+                        onCustomPriceChange={onCustomPriceChange}
                       />
                     )}
                   </div>
                 )}
-
-                <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-                  {propertyQuote.catalogModules
-                    .filter((module) => !PRIMARY_MODULES.some(([moduleId]) => moduleId === module.id))
-                    .map((module) => (
-                      <ModuleToggle
-                        key={module.id}
-                        label={module.label}
-                        moduleId={module.id}
-                        property={property}
-                        propertyQuote={propertyQuote}
-                        onToggle={onTogglePropertyModule}
-                      />
-                    ))}
-                </div>
               </div>
             </details>
           );
