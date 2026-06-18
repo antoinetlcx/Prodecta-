@@ -12,7 +12,7 @@ const MODE_COPY = {
   app: {
     eyebrow: "02 / app web",
     title: "Application web / overlay",
-    description: "App web immersive seule ou ajoutée au-dessus d’une visite Matterport existante.",
+    description: "Base app web à 600 €, puis options à cocher pour aller jusqu’au site immersif complet à 2 130 €.",
   },
   subscription: {
     eyebrow: "03 / abonnement",
@@ -32,12 +32,13 @@ const MODE_MODULES = {
     ["exterior-capture", "Points extérieurs"],
   ],
   app: [
-    ["web-app-immersive", "App web / overlay"],
-    ["quote-contact-module", "Formulaire / devis"],
-    ["conversion-popup", "Pop-up conversion"],
-    ["site-integration", "Intégration site"],
-    ["booking-module", "Réservation"],
+    ["web-app-immersive", "App web de base"],
+    ["booking-module", "Vrai système de réservation"],
+    ["seo-geo", "Référencement SEO / GEO"],
+    ["custom-url", "URL personnalisée"],
     ["automation", "Automatisation"],
+    ["conversion-popup", "Pop-up"],
+    ["custom-map", "Carte personnalisée"],
   ],
   subscription: [
     ["hosting-maintenance", "Hébergement"],
@@ -93,7 +94,7 @@ function moduleDetail(moduleId, propertyQuote, selected, source) {
     const parts = [];
     if (setup > 0) parts.push(eur(setup));
     if (monthly > 0) parts.push(eur(monthly, " €/mois"));
-    return parts.length ? `Tarif si ajouté : ${parts.join(" · ")}` : "Non inclus";
+    return parts.length ? `Option : ${parts.join(" · ")}` : "Non inclus";
   }
 
   const setup = source?.setupPublic || 0;
@@ -108,7 +109,7 @@ function moduleDetail(moduleId, propertyQuote, selected, source) {
   }
 
   if (moduleId === "web-app-immersive") {
-    return `Forfait app web : ${eur(setup)}`;
+    return `Socle obligatoire : ${eur(setup)}`;
   }
 
   if (monthly > 0 && setup > 0) return `${eur(setup)} · ${eur(monthly, " €/mois")}`;
@@ -122,17 +123,23 @@ function ModuleToggle({ label, moduleId, property, propertyQuote, onToggle }) {
   const catalog = findCatalog(propertyQuote, moduleId);
   const source = selected ? line : catalog;
   const Icon = source?.icon || Home;
+  const cardClass = selected
+    ? "border-emerald-700 bg-emerald-900 text-white shadow-md shadow-emerald-950/10"
+    : "border-slate-300 bg-slate-100 text-slate-900 hover:border-slate-400 hover:bg-white";
+  const iconClass = selected ? "bg-white text-emerald-900" : "bg-white text-slate-600";
+  const titleClass = selected ? "text-white" : "text-slate-900";
+  const detailClass = selected ? "text-emerald-100" : "text-slate-600";
 
   return (
-    <div className={`rounded-2xl border p-3 ${selected ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-white"}`}>
+    <div className={`rounded-2xl border p-3 transition ${cardClass}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 gap-3">
-          <span className={`mt-0.5 rounded-xl p-2 ${selected ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-500"}`}>
+          <span className={`mt-0.5 rounded-xl p-2 ${iconClass}`}>
             <Icon size={15} />
           </span>
           <div className="min-w-0">
-            <p className="truncate text-xs font-black text-slate-800">{label}</p>
-            <p className="mt-1 text-[11px] font-bold leading-relaxed text-slate-500">
+            <p className={`truncate text-xs font-black ${titleClass}`}>{label}</p>
+            <p className={`mt-1 text-[11px] font-bold leading-relaxed ${detailClass}`}>
               {moduleDetail(moduleId, propertyQuote, selected, source)}
             </p>
           </div>
@@ -150,7 +157,7 @@ function PriceOverrideField({ label, moduleId, property, propertyQuote, isClient
   const custom = property.customModulePrices?.[moduleId] || {};
 
   return (
-    <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 md:grid-cols-2">
+    <div className="grid gap-2 rounded-2xl border border-slate-300 bg-white p-3 md:grid-cols-2">
       <NumberField
         dense
         label={`${label} public`}
@@ -167,6 +174,32 @@ function PriceOverrideField({ label, moduleId, property, propertyQuote, isClient
         value={custom.setupMinimum ?? line.unitSetupMinimum}
         onChange={(value) => onCustomPriceChange(property.id, moduleId, "setupMinimum", value)}
       />
+    </div>
+  );
+}
+
+function AppPricingGuide({ propertyQuote, visibleSetup }) {
+  const baseLine = findLine(propertyQuote, "web-app-immersive") || findCatalog(propertyQuote, "web-app-immersive");
+  const basePrice = baseLine?.setupPublic || 600;
+  const optionTotal = Math.max(0, visibleSetup - basePrice);
+
+  return (
+    <div className="grid gap-3 md:grid-cols-3">
+      <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4 text-white shadow-sm">
+        <p className="text-[11px] font-black uppercase tracking-wide text-emerald-300">Base obligatoire</p>
+        <p className="mt-1 text-2xl font-black tabular-nums">{eur(basePrice)}</p>
+        <p className="mt-1 text-xs font-bold text-slate-300">Avis Google, sections, points d’intérêt, menu, interface.</p>
+      </div>
+      <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950 shadow-sm">
+        <p className="text-[11px] font-black uppercase tracking-wide text-amber-700">Options cochées</p>
+        <p className="mt-1 text-2xl font-black tabular-nums">{eur(optionTotal)}</p>
+        <p className="mt-1 text-xs font-bold text-amber-800">Chaque option peut être activée ou retirée.</p>
+      </div>
+      <div className="rounded-2xl border border-emerald-700 bg-emerald-800 p-4 text-white shadow-sm">
+        <p className="text-[11px] font-black uppercase tracking-wide text-emerald-100">Site immersif complet</p>
+        <p className="mt-1 text-2xl font-black tabular-nums">2 130 €</p>
+        <p className="mt-1 text-xs font-bold text-emerald-100">Base 600 € + toutes options 1 530 €.</p>
+      </div>
     </div>
   );
 }
@@ -194,13 +227,13 @@ export function PropertiesManager({
   const showSurfaceFields = mode === "shooting" || mode === "all";
 
   return (
-    <Card className="overflow-hidden rounded-2xl p-0 shadow-sm">
-      <div className="border-b border-slate-100 bg-white p-4">
+    <Card className="overflow-hidden rounded-2xl border-slate-300 bg-white p-0 shadow-sm">
+      <div className="border-b border-slate-800 bg-slate-950 p-4 text-white">
         <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-end">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">{copy.eyebrow}</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-300">{copy.eyebrow}</p>
             <h2 className="text-xl font-black tracking-tight">{copy.title}</h2>
-            <p className="mt-1 max-w-3xl text-sm font-semibold text-slate-500">{copy.description}</p>
+            <p className="mt-1 max-w-3xl text-sm font-semibold text-slate-300">{copy.description}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             {!isClientMode &&
@@ -209,7 +242,7 @@ export function PropertiesManager({
                   key={preset.name}
                   type="button"
                   onClick={() => onApplyPresetToAll(preset.moduleIds, preset.scope)}
-                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-600 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+                  className="rounded-2xl border border-white/20 bg-white/10 px-3 py-2 text-xs font-black text-white transition hover:border-emerald-300 hover:bg-emerald-500/20"
                   title={preset.description}
                 >
                   {preset.name} à tous
@@ -218,7 +251,7 @@ export function PropertiesManager({
             <button
               type="button"
               onClick={onAddProperty}
-              className="inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-3 py-2 text-xs font-black text-white transition hover:bg-slate-800"
+              className="inline-flex items-center gap-2 rounded-2xl bg-emerald-500 px-3 py-2 text-xs font-black text-emerald-950 transition hover:bg-emerald-400"
             >
               <Plus size={15} /> Ajouter un bien
             </button>
@@ -226,7 +259,7 @@ export function PropertiesManager({
         </div>
       </div>
 
-      <div className="space-y-3 p-4">
+      <div className="space-y-4 bg-slate-100 p-4">
         {propertyQuotes.map((propertyQuote, index) => {
           const property = properties.find((item) => item.id === propertyQuote.property.id) || propertyQuote.property;
           const visibleSetup = sumVisible(propertyQuote, mode, "setupPublic");
@@ -235,30 +268,30 @@ export function PropertiesManager({
           const displayPoints = property.manualPoints ? property.pointsExterior : propertyQuote.estimatedPoints;
 
           return (
-            <details key={property.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white" open={index === 0}>
-              <summary className="cursor-pointer list-none border-l-4 border-emerald-600 px-4 py-3">
+            <details key={property.id} className="overflow-hidden rounded-2xl border border-slate-300 bg-white shadow-sm" open={index === 0}>
+              <summary className="cursor-pointer list-none border-l-4 border-emerald-700 bg-white px-4 py-3">
                 <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_140px_140px_140px_110px] lg:items-center">
                   <div className="flex items-center gap-3">
-                    <span className="rounded-2xl bg-emerald-50 p-2 text-emerald-700">
+                    <span className="rounded-2xl bg-emerald-700 p-2 text-white">
                       <Home size={17} />
                     </span>
                     <div className="min-w-0">
                       <p className="truncate font-black text-slate-950">{property.name}</p>
-                      <p className="text-xs font-semibold text-slate-500">
+                      <p className="text-xs font-bold text-slate-600">
                         {mode === "subscription"
                           ? getSubscriptionName(property.selectedModuleIds)
                           : `${propertyQuote.intSurface} m² intérieur · ${propertyQuote.points} pts ext.`}
                       </p>
                     </div>
                   </div>
-                  <p className="text-xs font-black text-slate-500">{activeCount} modules actifs</p>
+                  <p className="text-xs font-black text-slate-700">{activeCount} modules actifs</p>
                   <p className="text-right text-sm font-black tabular-nums text-slate-950">{eur(visibleSetup)}</p>
                   <p className="text-right text-sm font-black tabular-nums text-slate-950">{eur(visibleMonthly, " €/mois")}</p>
                   <p className="text-right text-xs font-black uppercase tracking-wide text-emerald-700">Détails</p>
                 </div>
               </summary>
 
-              <div className="space-y-4 border-t border-slate-100 bg-slate-50 p-4">
+              <div className="space-y-4 border-t border-slate-200 bg-slate-100 p-4">
                 <div className={`grid gap-3 ${showSurfaceFields ? "lg:grid-cols-[minmax(220px,1fr)_repeat(3,minmax(120px,0.6fr))_auto]" : "lg:grid-cols-[minmax(220px,1fr)_auto]"} lg:items-end`}>
                   <TextField
                     dense
@@ -301,7 +334,7 @@ export function PropertiesManager({
                                 pointsExterior: propertyQuote.estimatedPoints,
                               })
                             }
-                            className="w-full rounded-xl border border-emerald-200 bg-white px-2 py-1 text-[11px] font-black text-emerald-700 transition hover:bg-emerald-50"
+                            className="w-full rounded-xl border border-emerald-700 bg-white px-2 py-1 text-[11px] font-black text-emerald-800 transition hover:bg-emerald-50"
                           >
                             Repasser en auto
                           </button>
@@ -313,7 +346,7 @@ export function PropertiesManager({
                     <button
                       type="button"
                       onClick={() => onDuplicateProperty(property.id)}
-                      className="rounded-xl border border-slate-200 bg-white p-2 text-slate-500 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+                      className="rounded-xl border border-slate-300 bg-white p-2 text-slate-600 transition hover:border-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
                       aria-label={`Dupliquer ${property.name}`}
                     >
                       <Copy size={16} />
@@ -322,7 +355,7 @@ export function PropertiesManager({
                       <button
                         type="button"
                         onClick={() => onDeleteProperty(property.id)}
-                        className="rounded-xl border border-slate-200 bg-white p-2 text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                        className="rounded-xl border border-slate-300 bg-white p-2 text-slate-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-600"
                         aria-label={`Supprimer ${property.name}`}
                       >
                         <Trash2 size={16} />
@@ -337,7 +370,7 @@ export function PropertiesManager({
                       key={preset.name}
                       type="button"
                       onClick={() => onApplyPropertyPreset(property.id, preset.moduleIds, preset.scope)}
-                      className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-600 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+                      className="rounded-2xl border border-slate-400 bg-white px-3 py-2 text-xs font-black text-slate-800 transition hover:border-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
                       title={preset.description}
                     >
                       {preset.name}
@@ -345,47 +378,49 @@ export function PropertiesManager({
                   ))}
                 </div>
 
+                {mode === "app" && <AppPricingGuide propertyQuote={propertyQuote} visibleSetup={visibleSetup} />}
+
                 {mode === "shooting" && (
-                  <div className="grid gap-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-3 md:grid-cols-3">
+                  <div className="grid gap-3 rounded-2xl border border-emerald-700 bg-emerald-900 p-3 text-white md:grid-cols-3">
                     <div>
-                      <p className="text-[11px] font-black uppercase tracking-wide text-emerald-700">Shooting intérieur</p>
-                      <p className="mt-1 text-sm font-black text-emerald-950">
+                      <p className="text-[11px] font-black uppercase tracking-wide text-emerald-200">Shooting intérieur</p>
+                      <p className="mt-1 text-sm font-black">
                         {propertyQuote.intSurface} m² × {propertyQuote.publicTier.coeff} €/m²
                       </p>
                     </div>
                     <div>
-                      <p className="text-[11px] font-black uppercase tracking-wide text-emerald-700">Points extérieurs</p>
-                      <p className="mt-1 text-sm font-black text-emerald-950">
+                      <p className="text-[11px] font-black uppercase tracking-wide text-emerald-200">Points extérieurs</p>
+                      <p className="mt-1 text-sm font-black">
                         {propertyQuote.points} points × {eur(propertyQuote.unitPoint, " €/pt")}
                       </p>
                     </div>
                     <div>
-                      <p className="text-[11px] font-black uppercase tracking-wide text-emerald-700">Total shooting</p>
-                      <p className="mt-1 text-sm font-black text-emerald-950">{eur(visibleSetup)}</p>
+                      <p className="text-[11px] font-black uppercase tracking-wide text-emerald-200">Total shooting</p>
+                      <p className="mt-1 text-sm font-black">{eur(visibleSetup)}</p>
                     </div>
                   </div>
                 )}
 
                 {mode === "subscription" && (
-                  <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-3 md:grid-cols-3">
+                  <div className="grid gap-3 rounded-2xl border border-slate-300 bg-white p-3 md:grid-cols-3">
                     <div>
-                      <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">Plan actif</p>
+                      <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">Plan actif</p>
                       <p className="mt-1 text-sm font-black text-slate-950">{getSubscriptionName(property.selectedModuleIds)}</p>
                     </div>
                     <div>
-                      <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">Matterport</p>
+                      <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">Matterport</p>
                       <p className="mt-1 text-sm font-black text-slate-950">
                         {property.selectedModuleIds.includes("matterport-space") ? "Hébergé Prodecta" : "Non inclus / client externe"}
                       </p>
                     </div>
                     <div>
-                      <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">Mensuel du bien</p>
+                      <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">Mensuel du bien</p>
                       <p className="mt-1 text-sm font-black text-slate-950">{eur(visibleMonthly, " €/mois")}</p>
                     </div>
                   </div>
                 )}
 
-                <div className={`grid gap-2 ${mode === "subscription" ? "md:grid-cols-2 xl:grid-cols-4" : "md:grid-cols-2 xl:grid-cols-3"}`}>
+                <div className={`grid gap-3 ${mode === "subscription" ? "md:grid-cols-2 xl:grid-cols-4" : "md:grid-cols-2 xl:grid-cols-3"}`}>
                   {moduleRows.map(([moduleId, label]) => (
                     <ModuleToggle
                       key={moduleId}
