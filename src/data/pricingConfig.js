@@ -47,8 +47,8 @@ export const SECTORS = {
     icon: Castle,
     color: "from-emerald-500 to-teal-700",
     accent: "#0f766e",
-    minimumFixed: 900,
-    publicFixed: 900,
+    minimumFixed: 500,
+    publicFixed: 700,
     note: "Lieux de réception, domaines, châteaux, grands espaces premium.",
     minimumPlans: [15, 46, 81],
     publicPlans: [30, 70, 105],
@@ -60,8 +60,8 @@ export const SECTORS = {
     icon: Hotel,
     color: "from-cyan-500 to-emerald-700",
     accent: "#0e7490",
-    minimumFixed: 600,
-    publicFixed: 1000,
+    minimumFixed: 700,
+    publicFixed: 800,
     note: "Hôtels, établissements avec chambres, espaces communs et réservation.",
     minimumPlans: [25, 56, 91],
     publicPlans: [40, 80, 115],
@@ -73,8 +73,8 @@ export const SECTORS = {
     icon: Dumbbell,
     color: "from-lime-500 to-emerald-700",
     accent: "#15803d",
-    minimumFixed: 500,
-    publicFixed: 800,
+    minimumFixed: 400,
+    publicFixed: 600,
     note: "Clubs fitness, franchises, espaces sport, studios et centres premium.",
     minimumPlans: [35, 65, 98],
     publicPlans: [35, 65, 120],
@@ -86,8 +86,8 @@ export const SECTORS = {
     icon: Home,
     color: "from-rose-400 to-emerald-700",
     accent: "#be123c",
-    minimumFixed: 300,
-    publicFixed: 800,
+    minimumFixed: 400,
+    publicFixed: 600,
     note: "Gîtes, villas, locations courte durée, maisons d’hôtes.",
     minimumPlans: [15, 46, 81],
     publicPlans: [25, 65, 100],
@@ -99,8 +99,8 @@ export const SECTORS = {
     icon: Utensils,
     color: "from-sky-400 to-teal-700",
     accent: "#0e7490",
-    minimumFixed: 400,
-    publicFixed: 700,
+    minimumFixed: 300,
+    publicFixed: 500,
     note: "Restaurants, brasseries, lieux de bouche, concepts food.",
     minimumPlans: [15, 46, 81],
     publicPlans: [25, 65, 100],
@@ -121,23 +121,32 @@ export const EXTERIOR_BRACKETS = [
 export const PLAN_NAMES = ["Essentiel", "Croissance", "Premium"];
 
 export const MODULE_CATEGORIES = [
-  "Production immersive",
-  "Application & conversion",
+  "Shooting & Matterport",
+  "Application web / overlay",
   "Abonnement récurrent",
   "Premium & accompagnement",
 ];
 
-export const SUBSCRIPTION_MODULE_IDS = [
-  "matterport-space",
-  "hosting-maintenance",
-  "analytics-dashboard",
-  "monthly-updates-support",
-];
+export const WORKFLOW_MODULE_GROUPS = {
+  shooting: ["interior-capture", "exterior-capture"],
+  app: [
+    "web-app-immersive",
+    "site-integration",
+    "booking-module",
+    "quote-contact-module",
+    "conversion-popup",
+    "automation",
+  ],
+  subscription: ["matterport-space", "hosting-maintenance", "analytics-dashboard", "monthly-updates-support"],
+  premium: ["strategic-support", "ai-video", "full-website"],
+};
+
+export const SUBSCRIPTION_MODULE_IDS = WORKFLOW_MODULE_GROUPS.subscription;
 
 export const PLAN_PRESETS = [
   {
     name: "Essentiel",
-    description: "Présence immersive en ligne avec hébergement.",
+    description: "Mise en ligne, hébergement et maintenance de base.",
     moduleIds: ["hosting-maintenance"],
   },
   {
@@ -155,9 +164,9 @@ export const PLAN_PRESETS = [
 export const MODULE_CATALOG = [
   {
     id: "interior-capture",
-    label: "Visite virtuelle immersive",
-    category: "Production immersive",
-    description: "Captation intérieure, traitement et intégration dans l’expérience immersive.",
+    label: "Shooting intérieur",
+    category: "Shooting & Matterport",
+    description: "Captation intérieure, traitement et préparation de la visite virtuelle.",
     icon: Sparkles,
     defaultSelected: true,
     recommended: true,
@@ -168,7 +177,7 @@ export const MODULE_CATALOG = [
     id: "matterport-space",
     label: "Espace Matterport",
     category: "Abonnement récurrent",
-    description: "Abonnement Matterport par visite virtuelle active.",
+    description: "Abonnement Matterport par visite virtuelle active, uniquement si l’espace est hébergé côté Prodecta.",
     icon: MapPinned,
     defaultSelected: false,
     recommended: true,
@@ -179,9 +188,9 @@ export const MODULE_CATALOG = [
   },
   {
     id: "web-app-immersive",
-    label: "Application web immersive",
-    category: "Production immersive",
-    description: "Création de l’interface immersive consultable depuis mobile, tablette et ordinateur.",
+    label: "Application web immersive / overlay",
+    category: "Application web / overlay",
+    description: "Interface immersive au-dessus d’une visite Matterport existante ou créée par Prodecta, consultable sur mobile, tablette et ordinateur.",
     icon: WandSparkles,
     defaultSelected: true,
     recommended: true,
@@ -190,9 +199,9 @@ export const MODULE_CATALOG = [
   },
   {
     id: "exterior-capture",
-    label: "Extérieurs & points de vue",
-    category: "Production immersive",
-    description: "Points de vue extérieurs calculés selon la surface ou saisis manuellement.",
+    label: "Points de vue extérieurs",
+    category: "Shooting & Matterport",
+    description: "Points de vue extérieurs calculés automatiquement selon la surface, avec correction manuelle possible.",
     icon: MapPinned,
     defaultSelected: true,
     setupMode: "exterior-points",
@@ -201,7 +210,7 @@ export const MODULE_CATALOG = [
   {
     id: "site-integration",
     label: "Intégration au site existant",
-    category: "Application & conversion",
+    category: "Application web / overlay",
     description: "Insertion dans le site existant, lien de navigation et adaptation responsive.",
     icon: MousePointerClick,
     defaultSelected: false,
@@ -213,7 +222,7 @@ export const MODULE_CATALOG = [
   {
     id: "booking-module",
     label: "Module de réservation",
-    category: "Application & conversion",
+    category: "Application web / overlay",
     description: "Bouton ou parcours de réservation connecté au process commercial actuel.",
     icon: FileText,
     defaultSelected: false,
@@ -226,7 +235,7 @@ export const MODULE_CATALOG = [
   {
     id: "quote-contact-module",
     label: "Module devis / demande de contact",
-    category: "Application & conversion",
+    category: "Application web / overlay",
     description: "Formulaire de contact ou demande de devis directement dans l’expérience.",
     icon: FileText,
     defaultSelected: true,
@@ -238,7 +247,7 @@ export const MODULE_CATALOG = [
   {
     id: "conversion-popup",
     label: "Pop-up de conversion",
-    category: "Application & conversion",
+    category: "Application web / overlay",
     description: "Message déclenché dans l’expérience : offre, réservation, abonnement ou devis.",
     icon: Megaphone,
     defaultSelected: true,
@@ -250,7 +259,7 @@ export const MODULE_CATALOG = [
   {
     id: "automation",
     label: "Automatisation CRM / e-mail",
-    category: "Application & conversion",
+    category: "Application web / overlay",
     description: "Envoi vers CRM, Airtable, notification e-mail ou suivi des leads.",
     icon: Settings2,
     defaultSelected: false,
@@ -360,29 +369,66 @@ export const DEFAULT_SELECTED_MODULE_IDS = MODULE_CATALOG.filter(
 
 export const PROPERTY_PRESETS = [
   {
-    name: "Visite simple",
-    moduleIds: ["interior-capture", "matterport-space"],
+    name: "Shooting seul",
+    scope: "shooting",
+    description: "Captation intérieure + points extérieurs, sans app web obligatoire.",
+    moduleIds: ["interior-capture", "exterior-capture"],
   },
   {
-    name: "App + Matterport",
-    moduleIds: ["interior-capture", "matterport-space", "web-app-immersive", "hosting-maintenance"],
+    name: "Overlay seul",
+    scope: "app",
+    description: "App web au-dessus d’une visite Matterport déjà existante.",
+    moduleIds: ["web-app-immersive", "quote-contact-module", "conversion-popup"],
   },
   {
-    name: "Performance",
-    moduleIds: ["interior-capture", "matterport-space", "web-app-immersive", "hosting-maintenance", "analytics-dashboard"],
+    name: "App + conversion",
+    scope: "app",
+    description: "Overlay avec formulaire, pop-up et intégration au site.",
+    moduleIds: ["web-app-immersive", "quote-contact-module", "conversion-popup", "site-integration"],
+  },
+  {
+    name: "App performance",
+    scope: "app",
+    description: "Overlay complet avec réservation et automatisation.",
+    moduleIds: [
+      "web-app-immersive",
+      "quote-contact-module",
+      "conversion-popup",
+      "site-integration",
+      "booking-module",
+      "automation",
+    ],
+  },
+  {
+    name: "Essentiel",
+    scope: "subscription",
+    description: "Hébergement et maintenance.",
+    moduleIds: ["hosting-maintenance"],
+  },
+  {
+    name: "Croissance",
+    scope: "subscription",
+    description: "Hébergement + dashboard analytics.",
+    moduleIds: ["hosting-maintenance", "analytics-dashboard"],
   },
   {
     name: "Premium",
+    scope: "subscription",
+    description: "Analytics, support et mises à jour.",
+    moduleIds: ["hosting-maintenance", "analytics-dashboard", "monthly-updates-support"],
+  },
+  {
+    name: "Pack complet",
+    scope: "full",
+    description: "Shooting + overlay + abonnement performance.",
     moduleIds: [
       "interior-capture",
-      "matterport-space",
+      "exterior-capture",
       "web-app-immersive",
-      "hosting-maintenance",
-      "analytics-dashboard",
-      "monthly-updates-support",
-      "booking-module",
       "quote-contact-module",
       "conversion-popup",
+      "hosting-maintenance",
+      "analytics-dashboard",
     ],
   },
 ];
