@@ -8,6 +8,7 @@ import {
   MODULE_CATALOG,
   PROPERTY_MODULE_IDS,
   SECTORS,
+  WORKFLOW_MODULE_GROUPS,
 } from "../data/pricingConfig.js";
 import { clampNumber, roundMoney } from "./formatters.js";
 
@@ -289,6 +290,28 @@ function calculateDiscount({ setupPublicSubtotal, setupMinimumSubtotal, discount
   };
 }
 
+function idsForSegment(segmentKey) {
+  if (segmentKey === "app") {
+    return [...WORKFLOW_MODULE_GROUPS.app, ...WORKFLOW_MODULE_GROUPS.premium];
+  }
+
+  return WORKFLOW_MODULE_GROUPS[segmentKey] || [];
+}
+
+function sumSegment(lineItems, segmentKey) {
+  const ids = idsForSegment(segmentKey);
+  const items = lineItems.filter((line) => ids.includes(line.moduleId || line.id));
+
+  return {
+    key: segmentKey,
+    lineItems: items,
+    setupPublic: roundMoney(items.reduce((sum, line) => sum + line.setupPublic, 0)),
+    setupMinimum: roundMoney(items.reduce((sum, line) => sum + line.setupMinimum, 0)),
+    monthlyPublic: roundMoney(items.reduce((sum, line) => sum + line.monthlyPublic, 0)),
+    monthlyMinimum: roundMoney(items.reduce((sum, line) => sum + line.monthlyMinimum, 0)),
+  };
+}
+
 export function calculateQuote(input = {}) {
   const sectorKey = input.sectorKey || "hotel";
   const sector = SECTORS[sectorKey] || SECTORS.hotel;
@@ -359,6 +382,11 @@ export function calculateQuote(input = {}) {
   const matterportSpaces = propertyLineItems.filter((module) => module.moduleId === "matterport-space").length;
   const webAppCount = propertyLineItems.filter((module) => module.moduleId === "web-app-immersive").length;
   const trackingCount = propertyLineItems.filter((module) => module.moduleId === "analytics-dashboard").length;
+  const segments = {
+    shooting: sumSegment(lineItems, "shooting"),
+    app: sumSegment(lineItems, "app"),
+    subscription: sumSegment(lineItems, "subscription"),
+  };
 
   return {
     sectorKey,
@@ -383,6 +411,7 @@ export function calculateQuote(input = {}) {
     selectedModules,
     setupModules,
     recurringModules,
+    segments,
     setupPublicSubtotal,
     setupMinimumSubtotal,
     monthlyPublicSubtotal,
