@@ -96,21 +96,42 @@ export function SelectField({ label, value, onChange, children, dense = false })
 
 export function StatCard({ icon: Icon, label, value, detail, tone = "emerald", compact = false }) {
   const toneClasses = {
-    emerald: "bg-emerald-50 text-emerald-700",
-    slate: "bg-slate-100 text-slate-700",
-    amber: "bg-amber-50 text-amber-700",
-    red: "bg-red-50 text-red-700",
+    emerald: {
+      card: "border-emerald-800 bg-emerald-900 text-white shadow-emerald-950/20",
+      icon: "bg-white text-emerald-900",
+      label: "text-emerald-200",
+      detail: "text-emerald-100",
+    },
+    slate: {
+      card: "border-slate-800 bg-slate-950 text-white shadow-slate-950/20",
+      icon: "bg-white text-slate-950",
+      label: "text-slate-300",
+      detail: "text-slate-300",
+    },
+    amber: {
+      card: "border-amber-300 bg-amber-100 text-amber-950 shadow-amber-950/10",
+      icon: "bg-amber-500 text-white",
+      label: "text-amber-700",
+      detail: "text-amber-800",
+    },
+    red: {
+      card: "border-red-300 bg-red-100 text-red-950 shadow-red-950/10",
+      icon: "bg-red-600 text-white",
+      label: "text-red-700",
+      detail: "text-red-800",
+    },
   };
+  const current = toneClasses[tone] || toneClasses.emerald;
 
   return (
-    <Card className={compact ? "rounded-2xl p-3 shadow-sm" : "p-4"}>
+    <Card className={`${compact ? "rounded-2xl p-3" : "p-4"} border-2 shadow-lg ${current.card}`}>
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{label}</p>
-          <p className={`${compact ? "mt-1 text-xl" : "mt-2 text-2xl"} break-words font-black tabular-nums text-slate-950`}>{value}</p>
-          {detail && <p className="mt-1 text-xs font-medium text-slate-500">{detail}</p>}
+          <p className={`text-xs font-black uppercase tracking-[0.18em] ${current.label}`}>{label}</p>
+          <p className={`${compact ? "mt-1 text-xl" : "mt-2 text-2xl"} break-words font-black tabular-nums`}>{value}</p>
+          {detail && <p className={`mt-1 text-xs font-bold ${current.detail}`}>{detail}</p>}
         </div>
-        <div className={`rounded-2xl ${compact ? "p-2" : "p-3"} ${toneClasses[tone]}`}>
+        <div className={`rounded-2xl ${compact ? "p-2" : "p-3"} ${current.icon}`}>
           <Icon size={compact ? 17 : 20} />
         </div>
       </div>
