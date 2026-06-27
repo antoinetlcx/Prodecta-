@@ -1,4 +1,4 @@
-import { Copy, Home, Plus, Trash2 } from "lucide-react";
+import { ArrowRight, Check, Copy, Globe2, Home, Plus, Sparkles, Trash2 } from "lucide-react";
 import { PROPERTY_PRESETS, WORKFLOW_MODULE_GROUPS } from "../data/pricingConfig.js";
 import { eur } from "../lib/formatters.js";
 import { Card, NumberField, TextField, Toggle } from "./ui.jsx";
@@ -43,6 +43,17 @@ const MODE_MODULES = {
     ["monthly-updates-support", "Rapports + accompagnement"],
   ],
 };
+
+const APP_BASE_MODULE_IDS = ["web-app-immersive"];
+const APP_FULL_MODULE_IDS = [
+  "web-app-immersive",
+  "booking-module",
+  "seo-geo",
+  "custom-url",
+  "automation",
+  "conversion-popup",
+  "custom-map",
+];
 
 const SUBSCRIPTION_PLANS = [
   {
@@ -219,6 +230,8 @@ function ModuleToggle({ label, moduleId, property, propertyQuote, onToggle }) {
   const iconClass = selected ? "bg-white text-emerald-900" : "bg-white text-slate-600";
   const detailClass = selected ? "text-emerald-100" : "text-slate-600";
 
+  const locked = moduleId === "web-app-immersive";
+
   return (
     <div className={`rounded-2xl border p-3 transition ${cardClass}`}>
       <div className="flex items-start justify-between gap-3">
@@ -229,7 +242,11 @@ function ModuleToggle({ label, moduleId, property, propertyQuote, onToggle }) {
             <p className={`mt-1 text-[11px] font-bold leading-relaxed ${detailClass}`}>{moduleDetail(moduleId, propertyQuote, selected, source, property)}</p>
           </div>
         </div>
-        <Toggle checked={selected} onChange={() => onToggle(property.id, moduleId)} label={`${selected ? "Retirer" : "Ajouter"} ${label}`} />
+        {locked ? (
+          <span className="rounded-full bg-white/15 px-3 py-1 text-[10px] font-black uppercase tracking-wide">Inclus</span>
+        ) : (
+          <Toggle checked={selected} onChange={() => onToggle(property.id, moduleId)} label={`${selected ? "Retirer" : "Ajouter"} ${label}`} />
+        )}
       </div>
     </div>
   );
@@ -247,16 +264,131 @@ function PriceOverrideField({ label, moduleId, property, propertyQuote, isClient
   );
 }
 
-function AppPricingGuide({ propertyQuote, visibleSetup }) {
-  const baseLine = findLine(propertyQuote, "web-app-immersive") || findCatalog(propertyQuote, "web-app-immersive");
-  const basePrice = baseLine?.setupPublic || 600;
-  const optionTotal = Math.max(0, visibleSetup - basePrice);
+function AppOfferSelector({ property, propertyQuote, onApplyOffer }) {
+  const catalogPrice = (moduleId) => findCatalog(propertyQuote, moduleId)?.setupPublic || 0;
+  const basePrice = APP_BASE_MODULE_IDS.reduce((total, moduleId) => total + catalogPrice(moduleId), 0) || 600;
+  const fullPrice = APP_FULL_MODULE_IDS.reduce((total, moduleId) => total + catalogPrice(moduleId), 0) || 2130;
+  const upgradePrice = Math.max(0, fullPrice - basePrice);
+  const selectedCoreIds = APP_FULL_MODULE_IDS.filter((moduleId) => property.selectedModuleIds.includes(moduleId));
+  const selectedCorePrice = selectedCoreIds.reduce(
+    (total, moduleId) => total + (findLine(propertyQuote, moduleId)?.setupPublic || catalogPrice(moduleId)),
+    0,
+  );
+  const fullSelected = APP_FULL_MODULE_IDS.every((moduleId) => property.selectedModuleIds.includes(moduleId));
+  const baseSelected = property.selectedModuleIds.includes("web-app-immersive") && selectedCoreIds.length === 1;
+  const currentLabel = fullSelected ? "Site immersif complet" : baseSelected ? "App web immersive" : "Configuration personnalisée";
+  const remainingUpgrade = Math.max(0, fullPrice - selectedCorePrice);
+
+  const offers = [
+    {
+      id: "base",
+      label: "App web immersive",
+      eyebrow: "Pour enrichir un site existant",
+      price: basePrice,
+      active: baseSelected,
+      icon: Sparkles,
+      modules: APP_BASE_MODULE_IDS,
+      description: "L’expérience immersive Prodecta intégrée au site actuel du client.",
+      included: ["Interface immersive complète", "Menu, sections et points d’intérêt", "Avis Google et appels à l’action"],
+      button: "Choisir l’app web",
+    },
+    {
+      id: "full",
+      label: "Site immersif complet",
+      eyebrow: "Pour remplacer le site principal",
+      price: fullPrice,
+      active: fullSelected,
+      icon: Globe2,
+      modules: APP_FULL_MODULE_IDS,
+      description: "Un véritable site principal immersif, autonome et pensé pour convertir.",
+      included: ["Tout ce qui est inclus dans l’app web", "Réservation, SEO/GEO et URL personnalisée", "Automatisation, pop-up et carte personnalisée"],
+      button: "Choisir le site complet",
+      recommended: true,
+    },
+  ];
+
   return (
-    <div className="grid gap-3 md:grid-cols-3">
-      <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4 text-white shadow-sm"><p className="text-[11px] font-black uppercase tracking-wide text-emerald-300">Base obligatoire</p><p className="mt-1 text-2xl font-black tabular-nums">{eur(basePrice)}</p><p className="mt-1 text-xs font-bold text-slate-300">Avis Google, sections, points d’intérêt, menu, interface.</p></div>
-      <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950 shadow-sm"><p className="text-[11px] font-black uppercase tracking-wide text-amber-700">Options cochées</p><p className="mt-1 text-2xl font-black tabular-nums">{eur(optionTotal)}</p><p className="mt-1 text-xs font-bold text-amber-800">Chaque option peut être activée ou retirée.</p></div>
-      <div className="rounded-2xl border border-emerald-700 bg-emerald-800 p-4 text-white shadow-sm"><p className="text-[11px] font-black uppercase tracking-wide text-emerald-100">Site immersif complet</p><p className="mt-1 text-2xl font-black tabular-nums">2 130 €</p><p className="mt-1 text-xs font-bold text-emerald-100">Base 600 € + toutes options 1 530 €.</p></div>
-    </div>
+    <section className="overflow-hidden rounded-[26px] border border-slate-300 bg-white shadow-sm">
+      <div className="border-b border-slate-200 px-5 py-4">
+        <p className="text-[11px] font-black uppercase tracking-[0.2em] text-emerald-700">Choix de l’offre</p>
+        <div className="mt-1 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h3 className="text-2xl font-black tracking-tight text-slate-950">App web ou site immersif complet ?</h3>
+            <p className="mt-1 text-sm font-semibold text-slate-600">Cliquez sur une offre : son prix total s’applique immédiatement au devis.</p>
+          </div>
+          <div className="rounded-2xl bg-emerald-50 px-4 py-2 text-sm font-black text-emerald-900">
+            Site complet : +{eur(upgradePrice)} par rapport à l’app
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-4 p-4 lg:grid-cols-2">
+        {offers.map((offer) => {
+          const Icon = offer.icon;
+          return (
+            <button
+              key={offer.id}
+              type="button"
+              aria-pressed={offer.active}
+              onClick={() => onApplyOffer(offer.modules)}
+              className={`group relative flex min-h-[300px] flex-col rounded-[24px] border-2 p-6 text-left transition focus:outline-none focus:ring-4 focus:ring-emerald-200 ${
+                offer.active
+                  ? "border-emerald-600 bg-emerald-950 text-white shadow-xl shadow-emerald-950/15"
+                  : offer.recommended
+                    ? "border-emerald-300 bg-emerald-50 text-slate-950 hover:border-emerald-600 hover:bg-emerald-100"
+                    : "border-slate-300 bg-slate-50 text-slate-950 hover:border-slate-500 hover:bg-white"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <span className={`rounded-2xl p-3 ${offer.active ? "bg-white text-emerald-950" : "bg-white text-emerald-800 shadow-sm"}`}>
+                  <Icon size={23} />
+                </span>
+                {offer.active ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-emerald-950"><Check size={13} /> Sélectionné</span>
+                ) : offer.recommended ? (
+                  <span className="rounded-full bg-emerald-700 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-white">Offre complète</span>
+                ) : null}
+              </div>
+
+              <p className={`mt-5 text-[11px] font-black uppercase tracking-[0.18em] ${offer.active ? "text-emerald-300" : "text-emerald-700"}`}>{offer.eyebrow}</p>
+              <h4 className="mt-1 text-2xl font-black tracking-tight">{offer.label}</h4>
+              <div className="mt-3 flex flex-wrap items-end gap-x-3 gap-y-1">
+                <p className="text-4xl font-black tabular-nums">{eur(offer.price)}</p>
+                <p className={`pb-1 text-xs font-black uppercase tracking-wide ${offer.active ? "text-emerald-200" : "text-slate-500"}`}>HT · création</p>
+              </div>
+              {offer.id === "full" && <p className={`mt-2 text-sm font-black ${offer.active ? "text-emerald-300" : "text-emerald-800"}`}>Soit +{eur(upgradePrice)} par rapport à l’app web</p>}
+              <p className={`mt-3 text-sm font-semibold leading-relaxed ${offer.active ? "text-slate-200" : "text-slate-600"}`}>{offer.description}</p>
+
+              <ul className="mt-4 space-y-2">
+                {offer.included.map((item) => (
+                  <li key={item} className="flex gap-2 text-sm font-bold"><Check className={offer.active ? "text-emerald-300" : "text-emerald-700"} size={16} /><span>{item}</span></li>
+                ))}
+              </ul>
+
+              <span className={`mt-auto inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-black transition ${
+                offer.active ? "bg-white text-emerald-950" : "bg-slate-950 text-white group-hover:bg-emerald-800"
+              }`}>
+                {offer.active ? "Offre sélectionnée" : offer.button} <ArrowRight size={16} />
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="border-t border-slate-200 bg-slate-950 px-5 py-4 text-white">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-300">Choix actuel</p>
+            <p className="mt-1 text-xl font-black">{currentLabel} · {eur(selectedCorePrice)}</p>
+          </div>
+          {fullSelected ? (
+            <p className="rounded-2xl bg-emerald-500 px-4 py-2 text-sm font-black text-emerald-950">Toutes les options du site immersif sont incluses</p>
+          ) : (
+            <p className="rounded-2xl bg-white/10 px-4 py-2 text-sm font-black">Encore +{eur(remainingUpgrade)} pour passer au site immersif complet</p>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -272,7 +404,7 @@ export function PropertiesManager({ properties, propertyQuotes, isClientMode = f
         <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-end">
           <div><p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-300">{copy.eyebrow}</p><h2 className="text-xl font-black tracking-tight">{copy.title}</h2><p className="mt-1 max-w-3xl text-sm font-semibold text-slate-300">{copy.description}</p></div>
           <div className="flex flex-wrap gap-2">
-            {!isClientMode && presets.map((preset) => <button key={preset.name} type="button" onClick={() => onApplyPresetToAll(preset.moduleIds, preset.scope)} className="rounded-2xl border border-white/20 bg-white/10 px-3 py-2 text-xs font-black text-white transition hover:border-emerald-300 hover:bg-emerald-500/20" title={preset.description}>{preset.name} à tous</button>)}
+            {!isClientMode && mode !== "app" && presets.map((preset) => <button key={preset.name} type="button" onClick={() => onApplyPresetToAll(preset.moduleIds, preset.scope)} className="rounded-2xl border border-white/20 bg-white/10 px-3 py-2 text-xs font-black text-white transition hover:border-emerald-300 hover:bg-emerald-500/20" title={preset.description}>{preset.name} à tous</button>)}
             <button type="button" onClick={onAddProperty} className="inline-flex items-center gap-2 rounded-2xl bg-emerald-500 px-3 py-2 text-xs font-black text-emerald-950 transition hover:bg-emerald-400"><Plus size={15} /> Ajouter un bien</button>
           </div>
         </div>
@@ -302,11 +434,12 @@ export function PropertiesManager({ properties, propertyQuotes, isClientMode = f
                   {showSurfaceFields && <><NumberField dense label="Surface intérieure" unit="m²" value={property.surfaceInterior} onChange={(value) => onUpdateProperty(property.id, { surfaceInterior: value })} /><NumberField dense label="Surface extérieure" unit="m²" value={property.surfaceExterior} onChange={(value) => onUpdateProperty(property.id, { surfaceExterior: value })} /><div className="space-y-2"><NumberField dense label="Points ext." unit="pts" value={displayPoints} onChange={(value) => onUpdateProperty(property.id, { pointsExterior: value, manualPoints: true })} hint={property.manualPoints ? "manuel" : `auto ${propertyQuote.estimatedPoints}`} />{property.manualPoints && <button type="button" onClick={() => onUpdateProperty(property.id, { manualPoints: false, pointsExterior: propertyQuote.estimatedPoints })} className="w-full rounded-xl border border-emerald-700 bg-white px-2 py-1 text-[11px] font-black text-emerald-800 transition hover:bg-emerald-50">Repasser en auto</button>}</div></>}
                   <div className="flex items-center justify-end gap-2"><button type="button" onClick={() => onDuplicateProperty(property.id)} className="rounded-xl border border-slate-300 bg-white p-2 text-slate-600 transition hover:border-emerald-700 hover:bg-emerald-50 hover:text-emerald-800" aria-label={`Dupliquer ${property.name}`}><Copy size={16} /></button>{properties.length > 1 && <button type="button" onClick={() => onDeleteProperty(property.id)} className="rounded-xl border border-slate-300 bg-white p-2 text-slate-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-600" aria-label={`Supprimer ${property.name}`}><Trash2 size={16} /></button>}</div>
                 </div>
-                <div className="flex flex-wrap gap-2">{presets.map((preset) => <button key={preset.name} type="button" onClick={() => onApplyPropertyPreset(property.id, preset.moduleIds, preset.scope)} className="rounded-2xl border border-slate-400 bg-white px-3 py-2 text-xs font-black text-slate-800 transition hover:border-emerald-700 hover:bg-emerald-50 hover:text-emerald-800" title={preset.description}>{preset.name}</button>)}</div>
-                {mode === "app" && <AppPricingGuide propertyQuote={propertyQuote} visibleSetup={visibleSetup} />}
+                {mode !== "app" && <div className="flex flex-wrap gap-2">{presets.map((preset) => <button key={preset.name} type="button" onClick={() => onApplyPropertyPreset(property.id, preset.moduleIds, preset.scope)} className="rounded-2xl border border-slate-400 bg-white px-3 py-2 text-xs font-black text-slate-800 transition hover:border-emerald-700 hover:bg-emerald-50 hover:text-emerald-800" title={preset.description}>{preset.name}</button>)}</div>}
+                {mode === "app" && <AppOfferSelector property={property} propertyQuote={propertyQuote} onApplyOffer={(moduleIds) => onApplyPropertyPreset(property.id, moduleIds, "app")} />}
                 {mode === "app" && aiVideoSelected && <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4"><div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px_220px]"><div><p className="text-xs font-black uppercase tracking-wide text-amber-700">Vidéo IA / teaser 30 secondes</p><p className="mt-1 text-sm font-bold text-amber-950">Prix standard : 250 € par vidéo. Avec Premium : 100 € par vidéo.</p></div><NumberField dense label="Quantité de vidéos" unit="vidéos" min={1} value={property.videoQuantity || 1} onChange={(value) => onUpdateProperty(property.id, { videoQuantity: value })} /><div className="rounded-2xl bg-white px-4 py-3"><p className="text-[11px] font-black uppercase tracking-wide text-slate-500">Tarif appliqué</p><p className="text-xl font-black text-slate-950">{eur((property.videoQuantity || 1) * (premiumSelected ? 100 : 250))}</p></div></div></div>}
                 {mode === "shooting" && <div className="grid gap-3 rounded-2xl border border-emerald-700 bg-emerald-900 p-3 text-white md:grid-cols-3"><div><p className="text-[11px] font-black uppercase tracking-wide text-emerald-200">Shooting intérieur</p><p className="mt-1 text-sm font-black">{propertyQuote.intSurface} m² × {propertyQuote.publicTier.coeff} €/m²</p></div><div><p className="text-[11px] font-black uppercase tracking-wide text-emerald-200">Points extérieurs</p><p className="mt-1 text-sm font-black">{propertyQuote.points} points × {eur(propertyQuote.unitPoint, " €/pt")}</p></div><div><p className="text-[11px] font-black uppercase tracking-wide text-emerald-200">Total shooting</p><p className="mt-1 text-sm font-black">{eur(visibleSetup)}</p></div></div>}
                 {mode === "subscription" && <div className="grid gap-3 rounded-2xl border border-slate-300 bg-white p-3 md:grid-cols-3"><div><p className="text-[11px] font-black uppercase tracking-wide text-slate-500">Plan actif</p><p className="mt-1 text-sm font-black text-slate-950">{getSubscriptionName(property.selectedModuleIds)}</p></div><div><p className="text-[11px] font-black uppercase tracking-wide text-slate-500">Visite virtuelle</p><p className="mt-1 text-sm font-black text-slate-950">{property.selectedModuleIds.includes("matterport-space") ? "Hébergement inclus" : "Non inclus"}</p></div><div><p className="text-[11px] font-black uppercase tracking-wide text-slate-500">Mensuel du bien</p><p className="mt-1 text-sm font-black text-slate-950">{eur(visibleMonthly, " €/mois")}</p></div></div>}
+                {mode === "app" && <div className="flex flex-col gap-1 border-t border-slate-300 pt-2"><p className="text-sm font-black text-slate-950">Options à la carte</p><p className="text-xs font-semibold text-slate-600">Le prix de chaque option reste visible. Activez-les séparément pour créer une offre personnalisée.</p></div>}
                 <div className={`grid gap-3 ${mode === "subscription" ? "md:grid-cols-2 xl:grid-cols-4" : "md:grid-cols-2 xl:grid-cols-3"}`}>{moduleRows.map(([moduleId, label]) => <ModuleToggle key={moduleId} label={label} moduleId={moduleId} property={property} propertyQuote={propertyQuote} onToggle={onTogglePropertyModule} />)}</div>
                 {(mode === "shooting" || mode === "app") && <div className="grid gap-2 xl:grid-cols-2">{mode === "shooting" && <><PriceOverrideField label="Shooting intérieur" moduleId="interior-capture" property={property} propertyQuote={propertyQuote} isClientMode={isClientMode} onCustomPriceChange={onCustomPriceChange} /><PriceOverrideField label="Points extérieurs" moduleId="exterior-capture" property={property} propertyQuote={propertyQuote} isClientMode={isClientMode} onCustomPriceChange={onCustomPriceChange} /></>}{mode === "app" && <PriceOverrideField label="App web" moduleId="web-app-immersive" property={property} propertyQuote={propertyQuote} isClientMode={isClientMode} onCustomPriceChange={onCustomPriceChange} />}</div>}
               </div>
