@@ -276,8 +276,8 @@ function AppOfferSelector({ property, propertyQuote, onApplyOffer }) {
   );
   const fullSelected = APP_FULL_MODULE_IDS.every((moduleId) => property.selectedModuleIds.includes(moduleId));
   const baseSelected = property.selectedModuleIds.includes("web-app-immersive") && selectedCoreIds.length === 1;
-  const currentLabel = fullSelected ? "Site immersif complet" : baseSelected ? "App web immersive" : "Configuration personnalisée";
   const remainingUpgrade = Math.max(0, fullPrice - selectedCorePrice);
+  const customSelected = !baseSelected && !fullSelected;
 
   const offers = [
     {
@@ -311,14 +311,9 @@ function AppOfferSelector({ property, propertyQuote, onApplyOffer }) {
     <section className="overflow-hidden rounded-[26px] border border-slate-300 bg-white shadow-sm">
       <div className="border-b border-slate-200 px-5 py-4">
         <p className="text-[11px] font-black uppercase tracking-[0.2em] text-emerald-700">Choix de l’offre</p>
-        <div className="mt-1 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <h3 className="text-2xl font-black tracking-tight text-slate-950">App web ou site immersif complet ?</h3>
-            <p className="mt-1 text-sm font-semibold text-slate-600">Cliquez sur une offre : son prix total s’applique immédiatement au devis.</p>
-          </div>
-          <div className="rounded-2xl bg-emerald-50 px-4 py-2 text-sm font-black text-emerald-900">
-            Site complet : +{eur(upgradePrice)} par rapport à l’app
-          </div>
+        <div className="mt-1">
+          <h3 className="text-2xl font-black tracking-tight text-slate-950">App web ou site immersif complet ?</h3>
+          <p className="mt-1 text-sm font-semibold text-slate-600">Cliquez sur une offre : le prix total affiché s’applique immédiatement au devis.</p>
         </div>
       </div>
 
@@ -354,9 +349,18 @@ function AppOfferSelector({ property, propertyQuote, onApplyOffer }) {
               <h4 className="mt-1 text-2xl font-black tracking-tight">{offer.label}</h4>
               <div className="mt-3 flex flex-wrap items-end gap-x-3 gap-y-1">
                 <p className="text-4xl font-black tabular-nums">{eur(offer.price)}</p>
-                <p className={`pb-1 text-xs font-black uppercase tracking-wide ${offer.active ? "text-emerald-200" : "text-slate-500"}`}>HT · création</p>
+                <p className={`pb-1 text-xs font-black uppercase tracking-wide ${offer.active ? "text-emerald-200" : "text-slate-500"}`}>Prix total HT · création</p>
               </div>
-              {offer.id === "full" && <p className={`mt-2 text-sm font-black ${offer.active ? "text-emerald-300" : "text-emerald-800"}`}>Soit +{eur(upgradePrice)} par rapport à l’app web</p>}
+              {offer.id === "full" && (
+                <div className={`mt-3 rounded-2xl px-4 py-3 ${offer.active ? "bg-white/10" : "bg-white"}`}>
+                  <p className={`text-[11px] font-black uppercase tracking-[0.15em] ${offer.active ? "text-emerald-300" : "text-emerald-700"}`}>
+                    {fullSelected ? "Offre complète sélectionnée" : "Supplément depuis votre choix actuel"}
+                  </p>
+                  <p className="mt-1 text-xl font-black tabular-nums">
+                    {fullSelected ? eur(fullPrice) : `+${eur(remainingUpgrade)}`}
+                  </p>
+                </div>
+              )}
               <p className={`mt-3 text-sm font-semibold leading-relaxed ${offer.active ? "text-slate-200" : "text-slate-600"}`}>{offer.description}</p>
 
               <ul className="mt-4 space-y-2">
@@ -375,19 +379,17 @@ function AppOfferSelector({ property, propertyQuote, onApplyOffer }) {
         })}
       </div>
 
-      <div className="border-t border-slate-200 bg-slate-950 px-5 py-4 text-white">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-300">Choix actuel</p>
-            <p className="mt-1 text-xl font-black">{currentLabel} · {eur(selectedCorePrice)}</p>
+      {customSelected && (
+        <div className="border-t border-slate-200 bg-slate-950 px-5 py-4 text-white">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-300">Configuration personnalisée</p>
+              <p className="mt-1 text-xl font-black">{eur(selectedCorePrice)} sélectionnés</p>
+            </div>
+            <p className="rounded-2xl bg-white/10 px-4 py-2 text-sm font-black">+{eur(remainingUpgrade)} pour obtenir le site immersif complet</p>
           </div>
-          {fullSelected ? (
-            <p className="rounded-2xl bg-emerald-500 px-4 py-2 text-sm font-black text-emerald-950">Toutes les options du site immersif sont incluses</p>
-          ) : (
-            <p className="rounded-2xl bg-white/10 px-4 py-2 text-sm font-black">Encore +{eur(remainingUpgrade)} pour passer au site immersif complet</p>
-          )}
         </div>
-      </div>
+      )}
     </section>
   );
 }
