@@ -264,7 +264,7 @@ function PriceOverrideField({ label, moduleId, property, propertyQuote, isClient
   );
 }
 
-function AppOfferSelector({ property, propertyQuote, onApplyOffer }) {
+function AppOfferSelector({ property, propertyQuote, onApplyOffer, actualUpgrade }) {
   const catalogPrice = (moduleId) => findCatalog(propertyQuote, moduleId)?.setupPublic || 0;
   const basePrice = APP_BASE_MODULE_IDS.reduce((total, moduleId) => total + catalogPrice(moduleId), 0) || 600;
   const fullPrice = APP_FULL_MODULE_IDS.reduce((total, moduleId) => total + catalogPrice(moduleId), 0) || 2130;
@@ -276,6 +276,7 @@ function AppOfferSelector({ property, propertyQuote, onApplyOffer }) {
   const fullSelected = APP_FULL_MODULE_IDS.every((moduleId) => property.selectedModuleIds.includes(moduleId));
   const baseSelected = property.selectedModuleIds.includes("web-app-immersive") && selectedCoreIds.length === 1;
   const remainingUpgrade = Math.max(0, fullPrice - selectedCorePrice);
+  const effectiveUpgrade = Number.isFinite(actualUpgrade) ? Math.max(0, actualUpgrade) : remainingUpgrade;
   const customSelected = !baseSelected && !fullSelected;
 
   const offers = [
@@ -348,16 +349,17 @@ function AppOfferSelector({ property, propertyQuote, onApplyOffer }) {
               <h4 className="mt-1 text-2xl font-black tracking-tight">{offer.label}</h4>
               <div className="mt-3 flex flex-wrap items-end gap-x-3 gap-y-1">
                 <p className="text-4xl font-black tabular-nums">{eur(offer.price)}</p>
-                <p className={`pb-1 text-xs font-black uppercase tracking-wide ${offer.active ? "text-emerald-200" : "text-slate-500"}`}>Prix total HT · création</p>
+                <p className={`pb-1 text-xs font-black uppercase tracking-wide ${offer.active ? "text-emerald-200" : "text-slate-500"}`}>Tarif catalogue HT · création</p>
               </div>
               {offer.id === "full" && (
                 <div className={`mt-3 rounded-2xl px-4 py-3 ${offer.active ? "bg-white/10" : "bg-white"}`}>
                   <p className={`text-[11px] font-black uppercase tracking-[0.15em] ${offer.active ? "text-emerald-300" : "text-emerald-700"}`}>
-                    {fullSelected ? "Offre complète sélectionnée" : "Supplément depuis votre choix actuel"}
+                    {fullSelected ? "Offre complète sélectionnée" : "Impact réel sur le devis"}
                   </p>
                   <p className="mt-1 text-xl font-black tabular-nums">
-                    {fullSelected ? eur(fullPrice) : `+${eur(remainingUpgrade)}`}
+                    {fullSelected ? eur(fullPrice) : `+${eur(effectiveUpgrade)}`}
                   </p>
+                  {!fullSelected && <p className={`mt-1 text-xs font-bold ${offer.active ? "text-emerald-200" : "text-slate-500"}`}>Remise commerciale incluse dans ce calcul</p>}
                 </div>
               )}
               <p className={`mt-3 text-sm font-semibold leading-relaxed ${offer.active ? "text-slate-200" : "text-slate-600"}`}>{offer.description}</p>
@@ -385,7 +387,7 @@ function AppOfferSelector({ property, propertyQuote, onApplyOffer }) {
               <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-300">Configuration personnalisée</p>
               <p className="mt-1 text-xl font-black">{eur(selectedCorePrice)} sélectionnés</p>
             </div>
-            <p className="rounded-2xl bg-white/10 px-4 py-2 text-sm font-black">+{eur(remainingUpgrade)} pour obtenir le site immersif complet</p>
+            <p className="rounded-2xl bg-white/10 px-4 py-2 text-sm font-black">Impact réel sur le devis : +{eur(effectiveUpgrade)}</p>
           </div>
         </div>
       )}
@@ -393,7 +395,7 @@ function AppOfferSelector({ property, propertyQuote, onApplyOffer }) {
   );
 }
 
-export function PropertiesManager({ properties, propertyQuotes, isClientMode = false, mode = "all", onAddProperty, onDuplicateProperty, onDeleteProperty, onUpdateProperty, onTogglePropertyModule, onApplyPropertyPreset, onApplyPresetToAll, onCustomPriceChange }) {
+export function PropertiesManager({ properties, propertyQuotes, isClientMode = false, mode = "all", onAddProperty, onDuplicateProperty, onDeleteProperty, onUpdateProperty, onTogglePropertyModule, onApplyPropertyPreset, onApplyPresetToAll, onCustomPriceChange, onCalculateOfferPricing, currentStartupTotal }) {
   const copy = MODE_COPY[mode] || MODE_COPY.all;
   const moduleRows = mode === "all" ? [...MODE_MODULES.shooting, ...MODE_MODULES.app, ...MODE_MODULES.subscription] : MODE_MODULES[mode] || MODE_MODULES.shooting;
   const presets = PROPERTY_PRESETS.filter((preset) => preset.scope === mode || (mode === "all" && preset.scope === "full"));
@@ -421,6 +423,8 @@ export function PropertiesManager({ properties, propertyQuotes, isClientMode = f
           const displayPoints = property.manualPoints ? property.pointsExterior : propertyQuote.estimatedPoints;
           const aiVideoSelected = property.selectedModuleIds.includes("ai-video");
           const premiumSelected = property.selectedModuleIds.includes("monthly-updates-support");
+          const fullOfferPricing = mode === "app" ? onCalculateOfferPricing?.(property.id, APP_FULL_MODULE_IDS) : null;
+          const actualUpgrade = fullOfferPricing ? Math.max(0, fullOfferPricing.startupTotalHT - currentStartupTotal) : null;
           return (
             <details key={property.id} className="overflow-hidden rounded-2xl border border-slate-300 bg-white shadow-sm" open={index === 0}>
               <summary className="cursor-pointer list-none border-l-4 border-emerald-700 bg-white px-4 py-3">
@@ -436,7 +440,7 @@ export function PropertiesManager({ properties, propertyQuotes, isClientMode = f
                   <div className="flex items-center justify-end gap-2"><button type="button" onClick={() => onDuplicateProperty(property.id)} className="rounded-xl border border-slate-300 bg-white p-2 text-slate-600 transition hover:border-emerald-700 hover:bg-emerald-50 hover:text-emerald-800" aria-label={`Dupliquer ${property.name}`}><Copy size={16} /></button>{properties.length > 1 && <button type="button" onClick={() => onDeleteProperty(property.id)} className="rounded-xl border border-slate-300 bg-white p-2 text-slate-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-600" aria-label={`Supprimer ${property.name}`}><Trash2 size={16} /></button>}</div>
                 </div>
                 {mode !== "app" && <div className="flex flex-wrap gap-2">{presets.map((preset) => <button key={preset.name} type="button" onClick={() => onApplyPropertyPreset(property.id, preset.moduleIds, preset.scope)} className="rounded-2xl border border-slate-400 bg-white px-3 py-2 text-xs font-black text-slate-800 transition hover:border-emerald-700 hover:bg-emerald-50 hover:text-emerald-800" title={preset.description}>{preset.name}</button>)}</div>}
-                {mode === "app" && <AppOfferSelector property={property} propertyQuote={propertyQuote} onApplyOffer={(moduleIds) => onApplyPropertyPreset(property.id, moduleIds, "app")} />}
+                {mode === "app" && <AppOfferSelector property={property} propertyQuote={propertyQuote} actualUpgrade={actualUpgrade} onApplyOffer={(moduleIds) => onApplyPropertyPreset(property.id, moduleIds, "app")} />}
                 {mode === "app" && aiVideoSelected && <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4"><div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px_220px]"><div><p className="text-xs font-black uppercase tracking-wide text-amber-700">Vidéo IA / teaser 30 secondes</p><p className="mt-1 text-sm font-bold text-amber-950">Prix standard : 250 € par vidéo. Avec Premium : 100 € par vidéo.</p></div><NumberField dense label="Quantité de vidéos" unit="vidéos" min={1} value={property.videoQuantity || 1} onChange={(value) => onUpdateProperty(property.id, { videoQuantity: value })} /><div className="rounded-2xl bg-white px-4 py-3"><p className="text-[11px] font-black uppercase tracking-wide text-slate-500">Tarif appliqué</p><p className="text-xl font-black text-slate-950">{eur((property.videoQuantity || 1) * (premiumSelected ? 100 : 250))}</p></div></div></div>}
                 {mode === "shooting" && <div className="grid gap-3 rounded-2xl border border-emerald-700 bg-emerald-900 p-3 text-white md:grid-cols-3"><div><p className="text-[11px] font-black uppercase tracking-wide text-emerald-200">Shooting intérieur</p><p className="mt-1 text-sm font-black">{propertyQuote.intSurface} m² × {propertyQuote.publicTier.coeff} €/m²</p></div><div><p className="text-[11px] font-black uppercase tracking-wide text-emerald-200">Points extérieurs</p><p className="mt-1 text-sm font-black">{propertyQuote.points} points × {eur(propertyQuote.unitPoint, " €/pt")}</p></div><div><p className="text-[11px] font-black uppercase tracking-wide text-emerald-200">Total shooting</p><p className="mt-1 text-sm font-black">{eur(visibleSetup)}</p></div></div>}
                 {mode === "subscription" && <div className="grid gap-3 rounded-2xl border border-slate-300 bg-white p-3 md:grid-cols-3"><div><p className="text-[11px] font-black uppercase tracking-wide text-slate-500">Plan actif</p><p className="mt-1 text-sm font-black text-slate-950">{getSubscriptionName(property.selectedModuleIds)}</p></div><div><p className="text-[11px] font-black uppercase tracking-wide text-slate-500">Visite virtuelle</p><p className="mt-1 text-sm font-black text-slate-950">{property.selectedModuleIds.includes("matterport-space") ? "Hébergement inclus" : "Non inclus"}</p></div><div><p className="text-[11px] font-black uppercase tracking-wide text-slate-500">Mensuel du bien</p><p className="mt-1 text-sm font-black text-slate-950">{eur(visibleMonthly, " €/mois")}</p></div></div>}
