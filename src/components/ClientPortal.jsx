@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Check, ChevronDown, Download, Euro, Home, MapPinned, Sparkles, Video } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, Download, Euro, Globe2, MapPinned, Sparkles, Video } from "lucide-react";
 import { SECTORS } from "../data/pricingConfig.js";
 import { eur } from "../lib/formatters.js";
 import { calculateQuote, createDefaultProperty } from "../lib/pricing.js";
@@ -10,7 +10,7 @@ const APP_PRESETS = {
   base: {
     label: "App web immersive",
     detail: "L’overlay clair et moderne au-dessus de votre visite virtuelle.",
-    price: "À partir de 600 €",
+    price: 600,
     ids: ["web-app-immersive"],
     includes: [
       "Interface immersive responsive mobile / ordinateur",
@@ -22,7 +22,7 @@ const APP_PRESETS = {
   full: {
     label: "Site immersif complet",
     detail: "Une expérience immersive pensée comme site principal ou landing page premium.",
-    price: "2 130 €",
+    price: 2130,
     ids: ["web-app-immersive", "booking-module", "seo-geo", "custom-url", "automation", "conversion-popup", "custom-map"],
     includes: [
       "Tout ce qui est compris dans l’app web immersive",
@@ -132,6 +132,88 @@ function OptionCard({ active, icon: Icon, label, detail, price, includes = [], o
   );
 }
 
+function ClientAppOfferSelector({ activePreset, actualUpgrade, onSelect }) {
+  const offers = [
+    { key: "base", icon: Sparkles, eyebrow: "Pour enrichir un site existant" },
+    { key: "full", icon: Globe2, eyebrow: "Pour remplacer le site principal", recommended: true },
+  ];
+
+  return (
+    <div className="overflow-hidden rounded-[26px] border border-slate-300 bg-white shadow-sm">
+      <div className="border-b border-slate-200 px-5 py-4">
+        <p className="text-[11px] font-black uppercase tracking-[0.2em] text-emerald-700">Choix de l’offre</p>
+        <h3 className="mt-1 text-2xl font-black tracking-tight text-slate-950">App web ou site immersif complet ?</h3>
+        <p className="mt-1 text-sm font-semibold text-slate-600">Cliquez sur une offre : son tarif s’applique immédiatement à votre estimation.</p>
+      </div>
+
+      <div className="grid gap-4 p-4 lg:grid-cols-2">
+        {offers.map((offer) => {
+          const preset = APP_PRESETS[offer.key];
+          const active = activePreset === offer.key;
+          const Icon = offer.icon;
+
+          return (
+            <button
+              key={offer.key}
+              type="button"
+              aria-pressed={active}
+              onClick={() => onSelect(offer.key)}
+              className={`group flex min-h-[330px] flex-col rounded-[24px] border-2 p-6 text-left transition focus:outline-none focus:ring-4 focus:ring-emerald-200 ${
+                active
+                  ? "border-emerald-500 bg-emerald-950 text-white shadow-xl shadow-emerald-950/15"
+                  : offer.recommended
+                    ? "border-emerald-300 bg-emerald-50 text-slate-950 hover:border-emerald-600 hover:bg-emerald-100"
+                    : "border-slate-300 bg-slate-50 text-slate-950 hover:border-slate-500 hover:bg-white"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <span className={`rounded-2xl p-3 ${active ? "bg-white text-emerald-950" : "bg-white text-emerald-800 shadow-sm"}`}>
+                  <Icon size={23} />
+                </span>
+                {active ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-emerald-950"><Check size={13} /> Sélectionné</span>
+                ) : offer.recommended ? (
+                  <span className="rounded-full bg-emerald-700 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-white">Offre complète</span>
+                ) : null}
+              </div>
+
+              <p className={`mt-5 text-[11px] font-black uppercase tracking-[0.18em] ${active ? "text-emerald-300" : "text-emerald-700"}`}>{offer.eyebrow}</p>
+              <h4 className="mt-1 text-2xl font-black tracking-tight">{preset.label}</h4>
+              <div className="mt-3 flex flex-wrap items-end gap-x-3 gap-y-1">
+                <p className="text-4xl font-black tabular-nums">{eur(preset.price)}</p>
+                <p className={`pb-1 text-xs font-black uppercase tracking-wide ${active ? "text-emerald-200" : "text-slate-500"}`}>Tarif HT · création</p>
+              </div>
+
+              {offer.key === "full" && !active && (
+                <div className="mt-3 rounded-2xl bg-white px-4 py-3">
+                  <p className="text-[11px] font-black uppercase tracking-[0.15em] text-emerald-700">Impact sur votre estimation</p>
+                  <p className="mt-1 text-xl font-black tabular-nums">+{eur(actualUpgrade)}</p>
+                </div>
+              )}
+
+              <p className={`mt-3 text-sm font-semibold leading-relaxed ${active ? "text-slate-200" : "text-slate-600"}`}>{preset.detail}</p>
+              <ul className="mt-4 space-y-2">
+                {preset.includes.slice(0, 4).map((item) => (
+                  <li key={item} className="flex gap-2 text-sm font-bold leading-snug">
+                    <Check className={active ? "text-emerald-300" : "text-emerald-700"} size={16} />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <span className={`mt-auto inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-black ${
+                active ? "bg-white text-emerald-950" : "bg-slate-950 text-white group-hover:bg-emerald-800"
+              }`}>
+                {active ? "Offre sélectionnée" : offer.key === "full" ? "Choisir le site complet" : "Choisir l’app web"} <ArrowRight size={16} />
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function buildQuoteSnapshot({ meta, sector, pricing, inputs, property, appPreset, subscriptionPreset, wantsShooting, wantsVideo, videoQuantity }) {
   const now = new Date().toISOString();
   const cleanPricing = {
@@ -208,6 +290,25 @@ export function ClientPortal() {
     () => calculateQuote({ sectorKey: inputs.sectorKey, properties: [property], discountType: "percent", discountPercent: 0, discountFixed: 0, marginMode: "safe" }),
     [inputs.sectorKey, property],
   );
+
+  const offerPricing = useMemo(() => {
+    const calculatePreset = (presetKey) => {
+      const scenarioModuleIds = [
+        ...(wantsShooting ? ["interior-capture", "exterior-capture"] : []),
+        ...APP_PRESETS[presetKey].ids,
+        ...SUBSCRIPTION_PRESETS[subscriptionPreset].ids,
+        ...(wantsVideo ? ["ai-video"] : []),
+      ];
+      const scenarioProperty = createDefaultProperty(1, {
+        ...property,
+        selectedModuleIds: [...new Set(scenarioModuleIds)],
+      });
+      return calculateQuote({ sectorKey: inputs.sectorKey, properties: [scenarioProperty], discountType: "percent", discountPercent: 0, discountFixed: 0, marginMode: "safe" });
+    };
+    return { base: calculatePreset("base"), full: calculatePreset("full") };
+  }, [inputs.sectorKey, property, wantsShooting, subscriptionPreset, wantsVideo]);
+
+  const actualAppUpgrade = Math.max(0, offerPricing.full.startupTotalHT - offerPricing.base.startupTotalHT);
 
   const quote = useMemo(
     () => buildQuoteSnapshot({ meta, sector, pricing, inputs, property, appPreset, subscriptionPreset, wantsShooting, wantsVideo, videoQuantity }),
@@ -289,11 +390,10 @@ export function ClientPortal() {
         </section>
 
         <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">4. App web immersive</p>
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">4. Offre immersive</p>
           <h2 className="mt-1 text-2xl font-black">Choisissez le niveau d’expérience</h2>
-          <div className="mt-4 grid gap-4 lg:grid-cols-2">
-            <OptionCard active={appPreset === "base"} icon={Sparkles} label={APP_PRESETS.base.label} detail={APP_PRESETS.base.detail} price={APP_PRESETS.base.price} includes={APP_PRESETS.base.includes} onClick={() => setAppPreset("base")} />
-            <OptionCard active={appPreset === "full"} icon={Home} label={APP_PRESETS.full.label} detail={APP_PRESETS.full.detail} price={APP_PRESETS.full.price} includes={APP_PRESETS.full.includes} onClick={() => setAppPreset("full")} />
+          <div className="mt-4">
+            <ClientAppOfferSelector activePreset={appPreset} actualUpgrade={actualAppUpgrade} onSelect={setAppPreset} />
           </div>
         </section>
 
@@ -327,7 +427,7 @@ export function ClientPortal() {
             </div>
             <div className="grid gap-2 text-right sm:grid-cols-3 lg:min-w-[520px]">
               <div className="rounded-2xl bg-slate-100 p-3"><p className="text-[11px] font-black uppercase tracking-wide text-slate-500">Shooting</p><p className="text-xl font-black">{eur(pricing.segments.shooting.setupPublic)}</p></div>
-              <div className="rounded-2xl bg-slate-100 p-3"><p className="text-[11px] font-black uppercase tracking-wide text-slate-500">App web</p><p className="text-xl font-black">{eur(pricing.segments.app.setupPublic)}</p></div>
+              <div className="rounded-2xl bg-slate-100 p-3"><p className="text-[11px] font-black uppercase tracking-wide text-slate-500">{appPreset === "full" ? "Site immersif" : "App web"}</p><p className="text-xl font-black">{eur(pricing.segments.app.setupPublic)}</p></div>
               <div className="rounded-2xl bg-slate-100 p-3"><p className="text-[11px] font-black uppercase tracking-wide text-slate-500">Mensuel</p><p className="text-xl font-black">{eur(pricing.monthlyFinalHT, " €/mois")}</p></div>
             </div>
           </div>
