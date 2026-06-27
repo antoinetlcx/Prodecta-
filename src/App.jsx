@@ -256,6 +256,21 @@ function App() {
     [inputs, commercialTerms, properties, selectedModuleIds, customModulePrices],
   );
 
+  const calculateOfferPricing = (propertyId, moduleIds) => {
+    const scenarioProperties = properties.map((property) =>
+      property.id === propertyId
+        ? { ...property, selectedModuleIds: mergeScopedModules(property.selectedModuleIds, moduleIds, "app") }
+        : property,
+    );
+    return calculateQuote({
+      ...inputs,
+      ...commercialTerms,
+      properties: scenarioProperties,
+      selectedModuleIds,
+      customModulePrices,
+    });
+  };
+
   const sector = pricing.sector;
   const SectorIcon = sector.icon;
   const isClientMode = presentationMode === "client";
@@ -735,6 +750,8 @@ function App() {
               onApplyPropertyPreset={applyPropertyPreset}
               onApplyPresetToAll={applyPresetToAllProperties}
               onCustomPriceChange={updatePropertyCustomPrice}
+              onCalculateOfferPricing={calculateOfferPricing}
+              currentStartupTotal={pricing.startupTotalHT}
             />
           </section>
         )}
