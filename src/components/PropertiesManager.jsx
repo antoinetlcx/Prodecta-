@@ -268,7 +268,6 @@ function AppOfferSelector({ property, propertyQuote, onApplyOffer }) {
   const catalogPrice = (moduleId) => findCatalog(propertyQuote, moduleId)?.setupPublic || 0;
   const basePrice = APP_BASE_MODULE_IDS.reduce((total, moduleId) => total + catalogPrice(moduleId), 0) || 600;
   const fullPrice = APP_FULL_MODULE_IDS.reduce((total, moduleId) => total + catalogPrice(moduleId), 0) || 2130;
-  const upgradePrice = Math.max(0, fullPrice - basePrice);
   const selectedCoreIds = APP_FULL_MODULE_IDS.filter((moduleId) => property.selectedModuleIds.includes(moduleId));
   const selectedCorePrice = selectedCoreIds.reduce(
     (total, moduleId) => total + (findLine(propertyQuote, moduleId)?.setupPublic || catalogPrice(moduleId)),
