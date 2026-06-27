@@ -94,6 +94,15 @@ const WORKFLOW_STEPS = [
 ];
 
 const EDITOR_STEPS = ["shooting", "app", "subscription"];
+const FULL_SITE_MODULE_IDS = [
+  "web-app-immersive",
+  "booking-module",
+  "seo-geo",
+  "custom-url",
+  "automation",
+  "conversion-popup",
+  "custom-map",
+];
 
 function cloneCustomPrices(value = DEFAULT_CUSTOM_MODULE_PRICES) {
   return JSON.parse(JSON.stringify(value));
@@ -250,6 +259,17 @@ function App() {
   const sector = pricing.sector;
   const SectorIcon = sector.icon;
   const isClientMode = presentationMode === "client";
+  const fullSiteCount = properties.filter((property) =>
+    FULL_SITE_MODULE_IDS.every((moduleId) => property.selectedModuleIds.includes(moduleId)),
+  ).length;
+  const allPropertiesUseFullSite = pricing.propertyCount > 0 && fullSiteCount === pricing.propertyCount;
+  const hasFullSite = fullSiteCount > 0;
+  const appOfferLabel = allPropertiesUseFullSite ? "Site immersif" : hasFullSite ? "App / site" : "App web";
+  const appOfferDetail = allPropertiesUseFullSite
+    ? `${fullSiteCount} site${fullSiteCount > 1 ? "s" : ""} complet${fullSiteCount > 1 ? "s" : ""}`
+    : hasFullSite
+      ? `${fullSiteCount} site complet · ${pricing.webAppCount - fullSiteCount} app`
+      : `${pricing.webAppCount} overlay${pricing.webAppCount > 1 ? "s" : ""}`;
   const activeStepMeta = WORKFLOW_STEPS.find((step) => step.id === activeStep) || WORKFLOW_STEPS[0];
   const isEditorStep = EDITOR_STEPS.includes(activeStep);
 
@@ -584,7 +604,7 @@ function App() {
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <StatCard compact icon={Layers3} label="Biens" value={String(pricing.propertyCount)} detail={`${pricing.virtualVisitCount} visites`} />
           <StatCard compact icon={MapPinned} label="Shooting" value={eur(pricing.segments.shooting.setupPublic)} detail={`${pricing.points} pts ext. affichés`} />
-          <StatCard compact icon={Sparkles} label="App web" value={eur(pricing.segments.app.setupPublic)} detail={`${pricing.webAppCount} overlay`} tone="slate" />
+          <StatCard compact icon={Sparkles} label={appOfferLabel} value={eur(pricing.segments.app.setupPublic)} detail={appOfferDetail} tone="slate" />
           <StatCard compact icon={Euro} label="Abonnement" value={eur(pricing.segments.subscription.monthlyPublic, " €/mois")} detail={`${pricing.trackingCount} dashboard`} />
           {isClientMode ? (
             <StatCard compact icon={Calculator} label="Démarrage" value={eur(pricing.startupTotalHT)} detail={eur(pricing.monthlyFinalHT, " €/mois")} tone="emerald" />
@@ -607,7 +627,7 @@ function App() {
                   </p>
                   <div className="mt-5 grid gap-3 md:grid-cols-3">
                     <SegmentTile label="Shooting" value={eur(pricing.segments.shooting.setupPublic)} detail="Captation + extérieurs" />
-                    <SegmentTile label="App web" value={eur(pricing.segments.app.setupPublic)} detail="Overlay + modules conversion" />
+                    <SegmentTile label={appOfferLabel} value={eur(pricing.segments.app.setupPublic)} detail={allPropertiesUseFullSite ? "Site principal immersif complet" : "Overlay + modules sélectionnés"} />
                     <SegmentTile label="Mensuel" value={eur(pricing.segments.subscription.monthlyPublic, " €/mois")} detail="Hébergement, stats, support" />
                   </div>
                 </div>
