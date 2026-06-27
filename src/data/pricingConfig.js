@@ -217,7 +217,7 @@ export const DEFAULT_CUSTOM_MODULE_PRICES = {
 
 export const DEFAULT_COMMERCIAL_TERMS = {
   discountType: "percent",
-  discountPercent: 10,
+  discountPercent: 0,
   discountFixed: 0,
   marginMode: "safe",
 };
